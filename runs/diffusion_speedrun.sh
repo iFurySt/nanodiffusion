@@ -6,7 +6,7 @@ set -euo pipefail
 #   python -m nanochat.dataset -n 10
 #   python -m scripts.tok_train --max-chars=2000000000
 
-torchrun --nproc_per_node=8 -m scripts.diffusion_base_train \
+torchrun --nproc_per_node=8 -m scripts.diffusion_base_train -- \
   --run=diffusion-speedrun \
   --depth=20 \
   --max-seq-len=2048 \
