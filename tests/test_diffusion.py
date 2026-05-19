@@ -67,6 +67,25 @@ def test_bidirectional_gpt_diffusion_loss_backward():
     assert model.transformer.wte.weight.grad is not None
 
 
+def test_tiny_embedding_model_supported_for_cpu_smoke():
+    small_config = GPTConfig(
+        sequence_len=8,
+        vocab_size=17,
+        n_layer=1,
+        n_head=1,
+        n_kv_head=1,
+        n_embd=16,
+        window_pattern="L",
+        attention_mode="bidirectional",
+    )
+    model = GPT(small_config, pad_vocab_size_to=1)
+    model.init_weights()
+    clean = torch.randint(0, 16, (1, 8), dtype=torch.long)
+    loss, _metrics = masked_diffusion_loss(model, clean, mask_token_id=16, eps=0.1)
+    loss.backward()
+    assert loss.isfinite()
+
+
 def test_sample_masked_diffusion_keeps_prompt_and_removes_masks():
     model = build_tiny_bidirectional_model()
     sample = sample_masked_diffusion(
