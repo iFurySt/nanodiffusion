@@ -33,7 +33,7 @@ def get_diffusion_vocab_size(tokenizer):
     return tokenizer.get_vocab_size() + 1
 
 
-def make_masked_batch(clean_ids, mask_token_id, eps=1e-3, generator=None):
+def make_masked_batch(clean_ids, mask_token_id, eps=1e-3, generator=None, eligible_mask=None):
     """
     Build one LLaDA/MDLM-style masked batch.
 
@@ -42,6 +42,9 @@ def make_masked_batch(clean_ids, mask_token_id, eps=1e-3, generator=None):
         mask_token_id: the reserved mask token id, normally tokenizer vocab size.
         eps: lower bound for mask probability, avoiding division by zero.
         generator: optional torch.Generator for deterministic tests/sampling.
+        eligible_mask: optional bool tensor of shape (B, T). Only eligible
+            positions can be masked and trained. This is used by SFT to keep
+            prompt tokens fixed and train only answer tokens.
 
     Returns:
         DiffusionBatch where targets are -1 for unmasked positions.
@@ -54,13 +57,23 @@ def make_masked_batch(clean_ids, mask_token_id, eps=1e-3, generator=None):
 
     t = torch.rand((B, 1), device=device, generator=generator)
     mask_prob = eps + (1.0 - eps) * t
-    mask = torch.rand((B, T), device=device, generator=generator) < mask_prob
+    if eligible_mask is None:
+        eligible_mask = torch.ones((B, T), dtype=torch.bool, device=device)
+    else:
+        assert eligible_mask.shape == clean_ids.shape
+        eligible_mask = eligible_mask.to(device=device, dtype=torch.bool)
+
+    mask = (torch.rand((B, T), device=device, generator=generator) < mask_prob) & eligible_mask
 
     # Keep every row trainable even for tiny smoke-test batches.
-    empty_rows = ~mask.any(dim=1)
+    eligible_rows = eligible_mask.any(dim=1)
+    empty_rows = (~mask.any(dim=1)) & eligible_rows
     if empty_rows.any():
-        fallback_pos = torch.randint(T, (int(empty_rows.sum().item()),), device=device, generator=generator)
-        mask[empty_rows, fallback_pos] = True
+        row_ids = empty_rows.nonzero(as_tuple=False).flatten()
+        for row_id in row_ids.tolist():
+            eligible_positions = eligible_mask[row_id].nonzero(as_tuple=False).flatten()
+            pick = torch.randint(len(eligible_positions), (1,), device=device, generator=generator)
+            mask[row_id, eligible_positions[pick]] = True
 
     input_ids = clean_ids.clone()
     input_ids[mask] = mask_token_id
@@ -69,14 +82,14 @@ def make_masked_batch(clean_ids, mask_token_id, eps=1e-3, generator=None):
     return DiffusionBatch(input_ids=input_ids, targets=targets, mask=mask, mask_prob=mask_prob)
 
 
-def masked_diffusion_loss(model, clean_ids, mask_token_id, eps=1e-3, generator=None):
+def masked_diffusion_loss(model, clean_ids, mask_token_id, eps=1e-3, generator=None, eligible_mask=None):
     """
     Compute the continuous-time masked diffusion objective.
 
     The per-token CE is divided by the row's mask probability, matching the
     simple LLaDA/MDLM estimator. The final loss is normalized by B*T.
     """
-    batch = make_masked_batch(clean_ids, mask_token_id, eps=eps, generator=generator)
+    batch = make_masked_batch(clean_ids, mask_token_id, eps=eps, generator=generator, eligible_mask=eligible_mask)
     logits = model(batch.input_ids)
     vocab_size = logits.size(-1)
     per_token = F.cross_entropy(

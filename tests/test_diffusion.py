@@ -54,6 +54,18 @@ def test_make_masked_batch_targets_only_masked_positions():
     assert torch.equal(batch.targets[~batch.mask], torch.full_like(batch.targets[~batch.mask], -1))
 
 
+def test_make_masked_batch_respects_eligible_mask():
+    clean = torch.arange(12, dtype=torch.long).view(2, 6)
+    eligible = torch.zeros_like(clean, dtype=torch.bool)
+    eligible[:, 3:] = True
+    generator = torch.Generator(device=clean.device).manual_seed(123)
+    batch = make_masked_batch(clean, mask_token_id=99, eps=0.9, generator=generator, eligible_mask=eligible)
+
+    assert not batch.mask[:, :3].any()
+    assert batch.mask[:, 3:].any(dim=1).all()
+    assert torch.equal(batch.targets[:, :3], torch.full_like(batch.targets[:, :3], -1))
+
+
 def test_bidirectional_gpt_diffusion_loss_backward():
     model = build_tiny_bidirectional_model()
     clean = torch.randint(0, 16, (2, 8), dtype=torch.long)
@@ -65,6 +77,29 @@ def test_bidirectional_gpt_diffusion_loss_backward():
     assert loss.isfinite()
     assert metrics["mask_fraction"] > 0
     assert model.transformer.wte.weight.grad is not None
+
+
+def test_diffusion_loss_can_train_answer_span_only():
+    model = build_tiny_bidirectional_model()
+    clean = torch.randint(0, 16, (2, 8), dtype=torch.long)
+    answer_mask = torch.zeros_like(clean, dtype=torch.bool)
+    answer_mask[:, 4:] = True
+    generator = torch.Generator(device=clean.device).manual_seed(123)
+
+    batch = make_masked_batch(clean, mask_token_id=16, eps=0.9, generator=generator, eligible_mask=answer_mask)
+    assert not batch.mask[:, :4].any()
+    loss, metrics = masked_diffusion_loss(
+        model,
+        clean,
+        mask_token_id=16,
+        eps=0.1,
+        generator=generator,
+        eligible_mask=answer_mask,
+    )
+    loss.backward()
+
+    assert loss.isfinite()
+    assert metrics["mask_fraction"] > 0
 
 
 def test_tiny_embedding_model_supported_for_cpu_smoke():
