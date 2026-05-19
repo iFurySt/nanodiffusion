@@ -14,6 +14,7 @@ from nanochat.diffusion import get_mask_token_id, sample_masked_diffusion
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Sample from a NanoDiffusion model")
+    parser.add_argument("-i", "--source", type=str, default="diffusion_sft", choices=["diffusion", "diffusion_sft"])
     parser.add_argument("-g", "--model-tag", type=str, default=None)
     parser.add_argument("-s", "--step", type=int, default=None)
     parser.add_argument("-p", "--prompt", type=str, default="")
@@ -47,7 +48,7 @@ def main():
     args = parse_args()
     device_type = autodetect_device_type() if args.device_type == "" else args.device_type
     _ddp, _rank, _local_rank, _world_size, device = compute_init(device_type)
-    model, tokenizer, meta = load_model("diffusion", device, phase="eval", model_tag=args.model_tag, step=args.step)
+    model, tokenizer, meta = load_model(args.source, device, phase="eval", model_tag=args.model_tag, step=args.step)
     mask_token_id = meta.get("mask_token_id", get_mask_token_id(tokenizer))
 
     if args.prompt:

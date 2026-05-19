@@ -170,6 +170,7 @@ def load_model(source, *args, **kwargs):
     model_dir = {
         "base": "base_checkpoints",
         "diffusion": "diffusion_checkpoints",
+        "diffusion_sft": "diffusion_sft_checkpoints",
         "sft": "chatsft_checkpoints",
         "rl": "chatrl_checkpoints",
     }[source]
@@ -182,6 +183,7 @@ def load_optimizer_state(source, device, rank, model_tag=None, step=None):
     model_dir = {
         "base": "base_checkpoints",
         "diffusion": "diffusion_checkpoints",
+        "diffusion_sft": "diffusion_sft_checkpoints",
         "sft": "chatsft_checkpoints",
         "rl": "chatrl_checkpoints",
     }[source]
