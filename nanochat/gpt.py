@@ -37,6 +37,8 @@ class GPTConfig:
     # Characters: L=long (full context), S=short (quarter context)
     # Examples: "L"=all full context, "SL"=alternating, "SSL"=two short then one long
     window_pattern: str = "SSSL"
+    # "causal" for autoregressive GPT, "bidirectional" for masked diffusion denoisers.
+    attention_mode: str = "causal"
 
 
 def norm(x):
@@ -69,7 +71,9 @@ class CausalSelfAttention(nn.Module):
         self.n_head = config.n_head
         self.n_kv_head = config.n_kv_head
         self.n_embd = config.n_embd
+        self.causal = config.attention_mode == "causal"
         self.head_dim = self.n_embd // self.n_head
+        assert config.attention_mode in {"causal", "bidirectional"}
         assert self.n_embd % self.n_head == 0
         assert self.n_kv_head <= self.n_head and self.n_head % self.n_kv_head == 0
         self.c_q = Linear(self.n_embd, self.n_head * self.head_dim, bias=False)
@@ -104,9 +108,10 @@ class CausalSelfAttention(nn.Module):
         # Flash Attention (FA3 on Hopper+, PyTorch SDPA fallback elsewhere)
         # window_size is (left, right) tuple: (N, 0) for causal, (-1, 0) for full context
         if kv_cache is None:
-            # Training: causal attention with optional sliding window
-            y = flash_attn.flash_attn_func(q, k, v, causal=True, window_size=window_size)
+            # Training: causal attention for GPT or full bidirectional attention for diffusion.
+            y = flash_attn.flash_attn_func(q, k, v, causal=self.causal, window_size=window_size)
         else:
+            assert self.causal, "KV cache inference is only supported for causal attention"
             # Inference: use flash_attn_with_kvcache which handles cache management
             k_cache, v_cache = kv_cache.get_layer_cache(self.layer_idx)
             y = flash_attn.flash_attn_with_kvcache(
@@ -293,6 +298,8 @@ class GPT(nn.Module):
         Pattern string is tiled across layers. Final layer always gets L (full context).
         Characters: L=long (full context), S=short (quarter context)
         """
+        if config.attention_mode == "bidirectional":
+            return [(-1, -1)] * config.n_layer
         pattern = config.window_pattern.upper()
         assert all(c in "SL" for c in pattern), f"Invalid window_pattern: {pattern}. Use only S and L."
         # Map characters to window sizes

@@ -26,6 +26,9 @@ def _patch_missing_config_keys(model_config_kwargs):
     if "window_pattern" not in model_config_kwargs:
         model_config_kwargs["window_pattern"] = "L"
         log0(f"Patching missing window_pattern in model config to 'L'")
+    if "attention_mode" not in model_config_kwargs:
+        model_config_kwargs["attention_mode"] = "causal"
+        log0(f"Patching missing attention_mode in model config to 'causal'")
 
 def _patch_missing_keys(model_data, model_config):
     """Add default values for new parameters that may be missing in old checkpoints."""
@@ -111,7 +114,9 @@ def build_model(checkpoint_dir, step, device, phase):
     # Load the Tokenizer
     tokenizer = get_tokenizer()
     # Sanity check: compatibility between model and tokenizer
-    assert tokenizer.get_vocab_size() == model_config_kwargs["vocab_size"], f"Tokenizer vocab size {tokenizer.get_vocab_size()} does not match model config vocab size {model_config_kwargs['vocab_size']}"
+    tokenizer_vocab_size = tokenizer.get_vocab_size()
+    model_vocab_size = model_config_kwargs["vocab_size"]
+    assert model_vocab_size in {tokenizer_vocab_size, tokenizer_vocab_size + 1}, f"Tokenizer vocab size {tokenizer_vocab_size} is incompatible with model config vocab size {model_vocab_size}"
     return model, tokenizer, meta_data
 
 

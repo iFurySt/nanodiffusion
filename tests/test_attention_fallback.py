@@ -289,6 +289,25 @@ class TestSDPAOnly:
         assert not torch.isnan(q.grad).any(), "NaN in q gradient"
         set_impl(None)
 
+    def test_noncausal_matches_sdpa(self):
+        """Test causal=False is passed through to SDPA instead of silently using causal attention."""
+        set_impl('sdpa')
+        B, T, H, D = 2, 16, 3, 8
+        q = torch.randn(B, T, H, D, device=self.DEVICE, dtype=self.DTYPE)
+        k = torch.randn(B, T, H, D, device=self.DEVICE, dtype=self.DTYPE)
+        v = torch.randn(B, T, H, D, device=self.DEVICE, dtype=self.DTYPE)
+
+        y = flash_attn.flash_attn_func(q, k, v, causal=False, window_size=(-1, -1))
+        expected = torch.nn.functional.scaled_dot_product_attention(
+            q.transpose(1, 2),
+            k.transpose(1, 2),
+            v.transpose(1, 2),
+            is_causal=False,
+        ).transpose(1, 2)
+
+        assert_close(y, expected, "noncausal_sdpa", atol=1e-5, rtol=1e-5)
+        set_impl(None)
+
     def test_kvcache(self):
         """Test SDPA with KV cache."""
         set_impl('sdpa')

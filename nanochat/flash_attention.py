@@ -66,38 +66,46 @@ USE_FA3 = _resolve_use_fa3()
 # =============================================================================
 # SDPA helpers
 # =============================================================================
-def _sdpa_attention(q, k, v, window_size, enable_gqa):
+def _sdpa_attention(q, k, v, causal, window_size, enable_gqa):
     """
     SDPA attention with sliding window support.
     q, k, v are (B, H, T, D) format.
     """
     Tq = q.size(2)
     Tk = k.size(2)
-    window = window_size[0]
+    left_window, right_window = window_size
 
-    # Full context, same length
-    if (window < 0 or window >= Tq) and Tq == Tk:
-        return F.scaled_dot_product_attention(q, k, v, is_causal=True, enable_gqa=enable_gqa)
+    # Full context, same length. Use PyTorch's built-in causal path when possible.
+    full_left = left_window < 0 or left_window >= Tk
+    full_right = right_window < 0 or right_window >= Tk
+    if full_left and (causal or full_right) and Tq == Tk:
+        return F.scaled_dot_product_attention(q, k, v, is_causal=causal, enable_gqa=enable_gqa)
 
     # Single token generation
-    if Tq == 1:
-        if window >= 0 and window < Tk:
+    if causal and Tq == 1:
+        if left_window >= 0 and left_window < Tk:
             # window is "left" tokens we need to include (window + 1) keys total
-            start = max(0, Tk - (window + 1))
+            start = max(0, Tk - (left_window + 1))
             k = k[:, :, start:, :]
             v = v[:, :, start:, :]
         return F.scaled_dot_product_attention(q, k, v, is_causal=False, enable_gqa=enable_gqa)
 
-    # Need explicit mask for sliding window/chunk inference
+    # Need explicit mask for sliding window/chunk inference and non-causal local attention.
     device = q.device
-    # For chunk inference (Tq != Tk), is_causal is not aligned to cache position => build an explicit bool mask
-    row_idx = (Tk - Tq) + torch.arange(Tq, device=device).unsqueeze(1)
+    # For chunk inference (Tq != Tk), PyTorch's is_causal is not aligned to cache
+    # position. Treat the query rows as the final Tq positions in the key sequence.
+    row_offset = Tk - Tq if causal else 0
+    row_idx = row_offset + torch.arange(Tq, device=device).unsqueeze(1)
     col_idx = torch.arange(Tk, device=device).unsqueeze(0)
-    mask = col_idx <= row_idx
+    mask = torch.ones((Tq, Tk), dtype=torch.bool, device=device)
+    if causal:
+        mask = col_idx <= row_idx
 
     # sliding window (left)
-    if window >= 0 and window < Tk:
-        mask = mask & ((row_idx - col_idx) <= window)
+    if left_window >= 0 and left_window < Tk:
+        mask = mask & ((row_idx - col_idx) <= left_window)
+    if not causal and right_window >= 0 and right_window < Tk:
+        mask = mask & ((col_idx - row_idx) <= right_window)
 
     return F.scaled_dot_product_attention(q, k, v, attn_mask=mask, enable_gqa=enable_gqa)
 
@@ -124,7 +132,7 @@ def flash_attn_func(q, k, v, causal=False, window_size=(-1, -1)):
     k = k.transpose(1, 2)
     v = v.transpose(1, 2)
     enable_gqa = q.size(1) != k.size(1)
-    y = _sdpa_attention(q, k, v, window_size, enable_gqa)
+    y = _sdpa_attention(q, k, v, causal, window_size, enable_gqa)
     return y.transpose(1, 2)  # back to (B, T, H, D)
 
 
@@ -172,7 +180,7 @@ def flash_attn_with_kvcache(q, k_cache, v_cache, k=None, v=None, cache_seqlens=N
     v_sdpa = v_full.transpose(1, 2)
 
     enable_gqa = q_sdpa.size(1) != k_sdpa.size(1)
-    y_sdpa = _sdpa_attention(q_sdpa, k_sdpa, v_sdpa, window_size, enable_gqa)
+    y_sdpa = _sdpa_attention(q_sdpa, k_sdpa, v_sdpa, causal, window_size, enable_gqa)
 
     return y_sdpa.transpose(1, 2)  # back to (B, T, H, D)
 
