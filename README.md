@@ -109,6 +109,12 @@ python -m scripts.diffusion_base_train \
   --eval-every=-1
 ```
 
+Or run the tiny end-to-end CPU script:
+
+```bash
+bash runs/diffusion_runcpu.sh
+```
+
 8xGPU reference entrypoint:
 
 ```bash
@@ -180,6 +186,7 @@ scripts/diffusion_base_eval.py   Validation loss and sampling
 scripts/diffusion_chat_sft.py    Prompt-fixed, answer-only masked SFT
 scripts/diffusion_chat_cli.py    Minimal interactive diffusion sampler
 runs/diffusion_speedrun.sh       8xGPU training entrypoint
+runs/diffusion_runcpu.sh         Tiny CPU/MPS learning run
 docs/diffusion_language_model_research.md
 ```
 
