@@ -19,6 +19,16 @@ from nanochat.dataloader import tokenizing_distributed_data_loader_bos_bestfit
 from nanochat.diffusion import get_mask_token_id, masked_diffusion_loss, sample_masked_diffusion
 
 
+def get_forbidden_sample_tokens(tokenizer):
+    token_ids = []
+    for token in tokenizer.get_special_tokens():
+        try:
+            token_ids.append(tokenizer.encode_special(token))
+        except Exception:
+            pass
+    return token_ids
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Evaluate a masked diffusion language model")
     parser.add_argument("--eval", type=str, default="loss,sample", help="comma-separated: loss,sample")
@@ -70,8 +80,10 @@ def run_sample(model, tokenizer, args, mask_token_id):
         temperature=args.temperature,
         top_k=args.top_k,
         seed=args.seed,
+        forbidden_token_ids=get_forbidden_sample_tokens(tokenizer),
     )
-    return tokenizer.decode([tok for tok in ids if tok != mask_token_id])
+    prompt_len = len(prompt_tokens)
+    return args.prompt + tokenizer.decode([tok for tok in ids[prompt_len:] if tok != mask_token_id])
 
 
 def main():

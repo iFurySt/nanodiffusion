@@ -118,6 +118,7 @@ def sample_masked_diffusion(
     temperature=0.0,
     top_k=None,
     seed=42,
+    forbidden_token_ids=None,
 ):
     """
     Fixed-length iterative denoising sampler.
@@ -144,13 +145,18 @@ def sample_masked_diffusion(
     if prompt_tokens:
         editable[:, :len(prompt_tokens)] = False
 
+    forbidden_token_ids = set(forbidden_token_ids or [])
+    forbidden_token_ids.add(mask_token_id)
+    forbidden_token_ids = [tok for tok in forbidden_token_ids if 0 <= tok < model.config.vocab_size]
+
     for step in range(steps):
         remaining = (ids == mask_token_id) & editable
         if not remaining.any():
             break
 
         logits = model(ids)
-        logits[..., mask_token_id] = -float("inf")
+        if forbidden_token_ids:
+            logits[..., forbidden_token_ids] = -float("inf")
         if top_k is not None and top_k > 0:
             k = min(top_k, logits.size(-1))
             vals, idx = torch.topk(logits, k, dim=-1)

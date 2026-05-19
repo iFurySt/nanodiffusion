@@ -12,6 +12,16 @@ from nanochat.common import autodetect_device_type, compute_cleanup, compute_ini
 from nanochat.diffusion import get_mask_token_id, sample_masked_diffusion
 
 
+def get_forbidden_sample_tokens(tokenizer):
+    token_ids = []
+    for token in tokenizer.get_special_tokens():
+        try:
+            token_ids.append(tokenizer.encode_special(token))
+        except Exception:
+            pass
+    return token_ids
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Sample from a NanoDiffusion model")
     parser.add_argument("-i", "--source", type=str, default="diffusion_sft", choices=["diffusion", "diffusion_sft"])
@@ -39,9 +49,10 @@ def render(model, tokenizer, prompt, args, mask_token_id):
         temperature=args.temperature,
         top_k=args.top_k,
         seed=args.seed,
+        forbidden_token_ids=get_forbidden_sample_tokens(tokenizer),
     )
-    ids = [tok for tok in ids if tok != mask_token_id]
-    return tokenizer.decode(ids)
+    answer_ids = [tok for tok in ids[len(prompt_tokens):] if tok != mask_token_id]
+    return prompt + tokenizer.decode(answer_ids)
 
 
 def main():

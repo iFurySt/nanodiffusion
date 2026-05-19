@@ -135,3 +135,19 @@ def test_sample_masked_diffusion_keeps_prompt_and_removes_masks():
     assert sample[:2] == [1, 2]
     assert len(sample) == 6
     assert 16 not in sample
+
+
+def test_sample_masked_diffusion_respects_forbidden_tokens():
+    model = build_tiny_bidirectional_model()
+    sample = sample_masked_diffusion(
+        model,
+        mask_token_id=16,
+        length=6,
+        prompt_tokens=[1, 2],
+        steps=4,
+        temperature=0.0,
+        forbidden_token_ids=[0, 3, 4, 5],
+    )
+
+    assert sample[:2] == [1, 2]
+    assert not ({0, 3, 4, 5, 16} & set(sample[2:]))
