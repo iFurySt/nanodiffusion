@@ -140,6 +140,35 @@ For a small interactive loop around the same sampler:
 python -m scripts.diffusion_chat_cli --model-tag=diffusion_d20
 ```
 
+## Supervised Fine-Tuning
+
+Diffusion SFT uses the same conversation rendering as nanochat, but the loss is
+different: user/system/prompt tokens stay fixed, and only assistant-answer tokens
+are eligible for masking and reconstruction.
+
+JSONL format:
+
+```jsonl
+[{"role":"user","content":"Say hello"},{"role":"assistant","content":"Hello from NanoDiffusion."}]
+```
+
+Run:
+
+```bash
+python -m scripts.diffusion_chat_sft \
+  --model-tag=diffusion_d20 \
+  --data-jsonl=$NANODIFFUSION_BASE_DIR/identity_conversations.jsonl \
+  --output-tag=diffusion_d20_sft
+```
+
+Then sample from the SFT checkpoint:
+
+```bash
+python -m scripts.diffusion_chat_cli \
+  --source=diffusion_sft \
+  --model-tag=diffusion_d20_sft
+```
+
 ## Important Files
 
 ```text
