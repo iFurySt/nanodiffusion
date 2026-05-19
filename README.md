@@ -134,6 +134,12 @@ python -m scripts.diffusion_base_eval \
 Sampling is fixed-length. Prompt tokens stay fixed; the remaining positions start
 as `[MASK]` and are filled by iterative denoising.
 
+For a small interactive loop around the same sampler:
+
+```bash
+python -m scripts.diffusion_chat_cli --model-tag=diffusion_d20
+```
+
 ## Important Files
 
 ```text
@@ -142,6 +148,7 @@ nanochat/diffusion.py            Masking, denoising loss, diffusion sampler
 nanochat/flash_attention.py      FA3/SDPA attention wrapper
 scripts/diffusion_base_train.py  Base masked diffusion pretraining
 scripts/diffusion_base_eval.py   Validation loss and sampling
+scripts/diffusion_chat_cli.py    Minimal interactive diffusion sampler
 runs/diffusion_speedrun.sh       8xGPU training entrypoint
 docs/diffusion_language_model_research.md
 ```
