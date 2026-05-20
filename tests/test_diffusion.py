@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 
 from nanochat.diffusion import (
     get_diffusion_vocab_size,
@@ -32,6 +33,31 @@ def build_tiny_bidirectional_model(vocab_size=17, sequence_len=8):
     model = GPT(config, pad_vocab_size_to=1)
     model.init_weights()
     return model
+
+
+class FixedLogitModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.config = GPTConfig(
+            sequence_len=4,
+            vocab_size=8,
+            n_layer=1,
+            n_head=1,
+            n_kv_head=1,
+            n_embd=8,
+            window_pattern="L",
+            attention_mode="bidirectional",
+        )
+
+    def get_device(self):
+        return torch.device("cpu")
+
+    def forward(self, ids):
+        logits = torch.zeros((*ids.shape, self.config.vocab_size), dtype=torch.float32)
+        logits[..., 3] = 3.0
+        logits[..., 4] = 2.0
+        logits[..., 5] = 1.0
+        return logits
 
 
 def test_mask_token_extends_tokenizer_vocab():
@@ -151,3 +177,19 @@ def test_sample_masked_diffusion_respects_forbidden_tokens():
 
     assert sample[:2] == [1, 2]
     assert not ({0, 3, 4, 5, 16} & set(sample[2:]))
+
+
+def test_sample_masked_diffusion_repeat_penalty_affects_output():
+    model = FixedLogitModel()
+    baseline = sample_masked_diffusion(model, mask_token_id=7, length=4, prompt_tokens=[1], steps=3)
+    penalized = sample_masked_diffusion(
+        model,
+        mask_token_id=7,
+        length=4,
+        prompt_tokens=[1],
+        steps=3,
+        repeat_penalty=2.0,
+    )
+
+    assert baseline == [1, 3, 3, 3]
+    assert penalized == [1, 3, 4, 3]

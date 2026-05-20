@@ -115,15 +115,23 @@ Or run the tiny end-to-end CPU script:
 bash runs/diffusion_runcpu.sh
 ```
 
-8xGPU reference entrypoint:
+8xGPU reference entrypoint for the first reproducible A100/H100 baseline:
 
 ```bash
-bash runs/diffusion_speedrun.sh
+bash runs/diffusion_speedrun_a100.sh
 ```
 
-The current speedrun is a starting point, not a claimed GPT-2-level result yet.
-The next research loop is to tune model depth, masking schedule, sampling steps,
-and evaluation until the repo has a clear public baseline.
+By default this downloads 10 ClimbMix shards, trains a 32k tokenizer if needed,
+runs a `d20` masked diffusion model for 5k steps at sequence length 2048, saves
+checkpoints every 1000 steps, and writes a markdown report under:
+
+```text
+$NANODIFFUSION_BASE_DIR/report/
+```
+
+The older `runs/diffusion_speedrun.sh` is kept as a minimal base-training
+entrypoint. The A100/H100 script is the teaching recipe that records commands,
+losses, throughput, memory, and fixed-prompt samples.
 
 ## Evaluate And Sample
 
@@ -134,11 +142,23 @@ python -m scripts.diffusion_base_eval \
   --model-tag=diffusion_d20 \
   --eval=loss,sample \
   --prompt="The capital of France is" \
-  --max-tokens=32
+  --max-tokens=32 \
+  --temperature=0.8 \
+  --top-k=50 \
+  --repeat-penalty=0.5
 ```
 
 Sampling is fixed-length. Prompt tokens stay fixed; the remaining positions start
 as `[MASK]` and are filled by iterative denoising.
+
+For a small report that compares a few sampling recipes on the fixed prompts:
+
+```bash
+python -m scripts.diffusion_sample_sweep \
+  --model-tag=diffusion_d20 \
+  --step=5000 \
+  --output=$NANODIFFUSION_BASE_DIR/report/diffusion_samples.md
+```
 
 For a small interactive loop around the same sampler:
 
@@ -183,11 +203,14 @@ nanochat/diffusion.py            Masking, denoising loss, diffusion sampler
 nanochat/flash_attention.py      FA3/SDPA attention wrapper
 scripts/diffusion_base_train.py  Base masked diffusion pretraining
 scripts/diffusion_base_eval.py   Validation loss and sampling
+scripts/diffusion_sample_sweep.py Fixed-prompt sampler comparison report
 scripts/diffusion_chat_sft.py    Prompt-fixed, answer-only masked SFT
 scripts/diffusion_chat_cli.py    Minimal interactive diffusion sampler
-runs/diffusion_speedrun.sh       8xGPU training entrypoint
+runs/diffusion_speedrun_a100.sh  8xA100/H100 baseline recipe with reports
+runs/diffusion_speedrun.sh       Minimal 8xGPU base training entrypoint
 runs/diffusion_runcpu.sh         Tiny CPU/MPS learning run
 docs/diffusion_language_model_research.md
+docs/nanodiffusion_milestones.md
 ```
 
 Inherited autoregressive nanochat scripts are still present while the fork is

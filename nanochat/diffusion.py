@@ -119,6 +119,7 @@ def sample_masked_diffusion(
     top_k=None,
     seed=42,
     forbidden_token_ids=None,
+    repeat_penalty=0.0,
 ):
     """
     Fixed-length iterative denoising sampler.
@@ -157,6 +158,12 @@ def sample_masked_diffusion(
         logits = model(ids)
         if forbidden_token_ids:
             logits[..., forbidden_token_ids] = -float("inf")
+        if repeat_penalty > 0:
+            generated = editable & (ids != mask_token_id)
+            for row in range(ids.size(0)):
+                seen = torch.unique(ids[row, generated[row]])
+                if seen.numel() > 0:
+                    logits[row, :, seen] -= repeat_penalty
         if top_k is not None and top_k > 0:
             k = min(top_k, logits.size(-1))
             vals, idx = torch.topk(logits, k, dim=-1)

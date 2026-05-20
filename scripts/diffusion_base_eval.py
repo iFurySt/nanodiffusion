@@ -42,6 +42,7 @@ def parse_args():
     parser.add_argument("--steps", type=int, default=None)
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--top-k", type=int, default=None)
+    parser.add_argument("--repeat-penalty", type=float, default=0.0)
     parser.add_argument("--seed", type=int, default=42)
     return parser.parse_args()
 
@@ -81,6 +82,7 @@ def run_sample(model, tokenizer, args, mask_token_id):
         top_k=args.top_k,
         seed=args.seed,
         forbidden_token_ids=get_forbidden_sample_tokens(tokenizer),
+        repeat_penalty=args.repeat_penalty,
     )
     prompt_len = len(prompt_tokens)
     return args.prompt + tokenizer.decode([tok for tok in ids[prompt_len:] if tok != mask_token_id])
