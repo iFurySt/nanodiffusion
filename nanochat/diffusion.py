@@ -167,13 +167,16 @@ def sample_masked_diffusion(
     repeat_penalty=0.0,
     no_repeat_ngram_size=0,
     block_size=0,
+    remask_low_confidence=False,
 ):
     """
     Fixed-length iterative denoising sampler.
 
     Prompt tokens, if supplied, are kept fixed at the left side. The remaining
-    positions start as [MASK]. Each step predicts all masked positions and keeps
-    the highest-confidence subset until no masks remain.
+    positions start as [MASK]. By default each step predicts all masked
+    positions and keeps the highest-confidence subset until no masks remain.
+    With low-confidence remasking enabled, every step may revise generated
+    positions and only the current highest-confidence subset stays unmasked.
     """
     assert length > 0
     prompt_tokens = prompt_tokens or []
@@ -204,6 +207,7 @@ def sample_masked_diffusion(
                 repeat_penalty=repeat_penalty,
                 no_repeat_ngram_size=no_repeat_ngram_size,
                 block_size=0,
+                remask_low_confidence=remask_low_confidence,
             )
             remaining_tokens -= current_block
         return output
@@ -225,6 +229,7 @@ def sample_masked_diffusion(
     forbidden_token_ids.add(mask_token_id)
     forbidden_token_ids = [tok for tok in forbidden_token_ids if 0 <= tok < model.config.vocab_size]
 
+    total_editable = int(editable.sum().item())
     for step in range(steps):
         remaining = (ids == mask_token_id) & editable
         if not remaining.any():
@@ -241,7 +246,8 @@ def sample_masked_diffusion(
                     logits[row, :, seen] -= repeat_penalty
         if no_repeat_ngram_size > 0:
             for row in range(ids.size(0)):
-                positions = remaining[row].nonzero(as_tuple=False).flatten()
+                target_positions = editable[row] if remask_low_confidence else remaining[row]
+                positions = target_positions.nonzero(as_tuple=False).flatten()
                 for pos in positions.tolist():
                     banned = _banned_ngram_tokens(ids[row], mask_token_id, no_repeat_ngram_size, pos)
                     if banned:
@@ -261,13 +267,22 @@ def sample_masked_diffusion(
             probs = F.softmax(logits, dim=-1)
             conf, sampled = probs.max(dim=-1)
 
-        remaining_count = int(remaining.sum().item())
-        steps_left = steps - step
-        reveal_count = max(1, -(-remaining_count // steps_left))
-        reveal_scores = conf.masked_fill(~remaining, -1.0).view(-1)
-        reveal_idx = torch.topk(reveal_scores, reveal_count).indices
         flat_ids = ids.view(-1)
         flat_sampled = sampled.view(-1)
-        flat_ids[reveal_idx] = flat_sampled[reveal_idx]
+        if remask_low_confidence:
+            flat_ids[editable.view(-1)] = flat_sampled[editable.view(-1)]
+            keep_count = max(1, -(-(total_editable * (step + 1)) // steps))
+            keep_scores = conf.masked_fill(~editable, -1.0).view(-1)
+            keep_idx = torch.topk(keep_scores, min(keep_count, total_editable)).indices
+            low_confidence = editable.clone().view(-1)
+            low_confidence[keep_idx] = False
+            flat_ids[low_confidence] = mask_token_id
+        else:
+            remaining_count = int(remaining.sum().item())
+            steps_left = steps - step
+            reveal_count = max(1, -(-remaining_count // steps_left))
+            reveal_scores = conf.masked_fill(~remaining, -1.0).view(-1)
+            reveal_idx = torch.topk(reveal_scores, reveal_count).indices
+            flat_ids[reveal_idx] = flat_sampled[reveal_idx]
 
     return ids[0].tolist()

@@ -92,10 +92,23 @@ Known evidence:
 - The sampler now supports `--no-repeat-ngram-size`; a step-5000 A100 sample
   report showed that trigram blocking reduces exact loops on the same
   checkpoint, but does not solve the quality issue by itself.
+- The sampler now also supports low-confidence remasking and block-wise
+  generation. Low-confidence remasking did not improve the current checkpoints;
+  `block_size=4` and `block_size=8` produced more continuous prose than full
+  answer-window denoising, but still failed code and factual prompts.
 - Base training now exposes the Milestone 3 masking-objective knobs
   `--mask-max-prob` and `--no-mask-loss-reweight`, so the next fresh runs can
   compare the current LLaDA/MDLM-style objective with capped masking or no
   `/ p_mask` weighting.
+- Resuming the 10-shard d20 seq-2048 baseline from step 5000 toward 10k was
+  stopped after validation worsened through roughly step 7500. More steps on
+  the same objective did not look promising.
+- A fresh 8xA100 no-loss-reweight candidate
+  `diffusion_a100_d20_s2048_5k_noreweight` was stopped at step 3000 after the
+  validation curve reached its best value at step 2000 and then regressed:
+  `5.062482 -> 2.390366 -> 2.281531 -> 2.477968 -> 2.209973 -> 2.386717 ->
+  2.340456`. Step-2000 and step-3000 samples remained repetitive, so this is a
+  rejected recipe, not the selected baseline.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -299,6 +312,8 @@ sweeps before treating SFT outputs as model-quality evidence.
 Then use that run to decide whether the next bottleneck is training length,
 masking schedule, or sampler repetition.
 
-Concrete next run: resume the 10-shard d20 seq-2048 baseline from step 5000 to
-step 10000, keeping the same objective, to check whether the still-improving
-loss and samples justify longer training before changing the masking objective.
+Concrete next run: stop spending A100 time on the same 10-shard objective. The
+next useful experiment should change the train/sample alignment, for example a
+continuation-style masking objective or a shorter block-wise training recipe,
+then compare it against the existing step-5000 engineering baseline with the
+expanded fixed-prompt sampler report.

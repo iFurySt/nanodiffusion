@@ -161,6 +161,12 @@ MASK_LOSS_REWEIGHT=0 bash runs/diffusion_speedrun_a100.sh
 The defaults keep the original simple LLaDA/MDLM-style objective: sampled mask
 probability up to `1.0` and per-token loss divided by the row mask probability.
 
+Additional A100 sweeps on 2026-05-20 showed that simply extending this 10-shard
+baseline to 10k steps, or retraining with `MASK_LOSS_REWEIGHT=0`, did not clear
+the repetition quality gate. The no-reweight run was stopped at step 3000 after
+validation stopped improving; step 2000 had the lowest loss, but fixed-prompt
+samples were still dominated by short loops.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:
@@ -174,12 +180,14 @@ python -m scripts.diffusion_base_eval \
   --temperature=0.8 \
   --top-k=50 \
   --repeat-penalty=0.5 \
-  --no-repeat-ngram-size=3
+  --no-repeat-ngram-size=3 \
+  --block-size=4
 ```
 
-For the current baseline, `--no-repeat-ngram-size=3` is the clearest default:
-it prevents exact repeated trigrams in the generated span. This reduces
-verbatim loops but does not fix weak base-model knowledge or planning by
+For the current baseline, `--no-repeat-ngram-size=3 --block-size=4` is the
+clearest sampling default: it prevents exact repeated trigrams and generates a
+few tokens at a time, which is less repetitive than filling the whole answer
+window at once. It still does not fix weak base-model knowledge or planning by
 itself.
 
 Sampling is fixed-length. Prompt tokens stay fixed; the remaining positions start

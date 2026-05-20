@@ -256,6 +256,23 @@ def test_sample_masked_diffusion_block_generation_preserves_length():
     assert sample == [1, 3, 3, 3]
 
 
+def test_sample_masked_diffusion_remasking_preserves_prompt_and_finishes():
+    model = build_tiny_bidirectional_model()
+    sample = sample_masked_diffusion(
+        model,
+        mask_token_id=16,
+        length=6,
+        prompt_tokens=[1, 2],
+        steps=4,
+        temperature=0.0,
+        remask_low_confidence=True,
+    )
+
+    assert sample[:2] == [1, 2]
+    assert len(sample) == 6
+    assert 16 not in sample
+
+
 def test_sft_loader_wraps_rank_cursor_for_tiny_datasets():
     dataset = TinyConversationDataset([{"messages": []} for _ in range(4)])
     tokenizer = TinyConversationTokenizer()

@@ -32,6 +32,8 @@ SAVE_EVERY="${SAVE_EVERY:-1000}"
 SAMPLE_MAX_TOKENS="${SAMPLE_MAX_TOKENS:-64}"
 SAMPLE_SEED="${SAMPLE_SEED:-42}"
 SAMPLE_NO_REPEAT_NGRAM_SIZE="${SAMPLE_NO_REPEAT_NGRAM_SIZE:-3}"
+SAMPLE_BLOCK_SIZE="${SAMPLE_BLOCK_SIZE:-4}"
+SAMPLE_REMASK_LOW_CONFIDENCE="${SAMPLE_REMASK_LOW_CONFIDENCE:-0}"
 RESUME_FROM_STEP="${RESUME_FROM_STEP:--1}"
 COMPILE="${COMPILE:-0}"
 
@@ -70,6 +72,9 @@ eval_args=(--mask-max-prob="$MASK_MAX_PROB")
 if [ "$MASK_LOSS_REWEIGHT" = "0" ]; then
   eval_args+=(--no-mask-loss-reweight)
 fi
+if [ "$SAMPLE_REMASK_LOW_CONFIDENCE" = "1" ]; then
+  eval_args+=(--remask-low-confidence)
+fi
 
 commit="$(git rev-parse HEAD 2>/dev/null || cat .sync/source_commit 2>/dev/null || echo unknown)"
 append_report "# NanoDiffusion A100 Speedrun"
@@ -86,6 +91,8 @@ append_report "- train_steps: \`$TRAIN_STEPS\`"
 append_report "- resume_from_step: \`$RESUME_FROM_STEP\`"
 append_report "- mask_max_prob: \`$MASK_MAX_PROB\`"
 append_report "- mask_loss_reweight: \`$MASK_LOSS_REWEIGHT\`"
+append_report "- sample_remask_low_confidence: \`$SAMPLE_REMASK_LOW_CONFIDENCE\`"
+append_report "- sample_block_size: \`$SAMPLE_BLOCK_SIZE\`"
 append_report "- total_batch_size: \`$TOTAL_BATCH_SIZE\`"
 append_report "- device_batch_size: \`$DEVICE_BATCH_SIZE\`"
 append_report "- nproc_per_node: \`$NPROC_PER_NODE\`"
@@ -166,7 +173,8 @@ run_python -m scripts.diffusion_base_eval \
   --top-k=50 \
   "${eval_args[@]}" \
   --repeat-penalty=0.5 \
-  --no-repeat-ngram-size="$SAMPLE_NO_REPEAT_NGRAM_SIZE" 2>&1 | tee "$EVAL_LOG" | tee -a "$REPORT_FILE"
+  --no-repeat-ngram-size="$SAMPLE_NO_REPEAT_NGRAM_SIZE" \
+  --block-size="$SAMPLE_BLOCK_SIZE" 2>&1 | tee "$EVAL_LOG" | tee -a "$REPORT_FILE"
 append_report '```'
 append_report ""
 append_report "- finished: $(date)"
