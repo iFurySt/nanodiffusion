@@ -205,6 +205,24 @@ It slightly improved the best validation loss, but fixed-prompt samples still
 failed the same quality gate: phrase/list loops, factual drift, and no usable
 code continuation. The selected quality baseline is still open.
 
+A shorter sequence-length candidate improved validation loss further:
+
+```text
+model_tag: diffusion_a100_d20_s1024_5k_suffix_20s
+data_shards: 20
+max_seq_len: 1024
+training_time: 157.12m
+minimum_validation_diffusion_loss: 1.638211
+final_eval_loss: 1.808493
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_5k_suffix_20s-20260521-033427.md
+```
+
+The lower validation loss did not translate into the fixed-prompt quality gate:
+ordinary prompts still looped, and `def fibonacci(n):` mostly repeated malformed
+function names. Resuming this checkpoint toward 10k was stopped at step 7000
+after validation regressed (`1.736814 -> 1.951241 -> 1.934933 -> 1.897121 ->
+1.816883`) and a step-7000 sample report still showed the same failure mode.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:

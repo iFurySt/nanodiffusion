@@ -130,6 +130,20 @@ Known evidence:
   The samples still failed the quality gate with list-like repetitions,
   malformed factual continuations, and unusable `def fibonacci` output. More
   shards alone did not produce the selected baseline.
+- A 20-shard seq-1024 suffix candidate
+  `diffusion_a100_d20_s1024_5k_suffix_20s` completed on 2026-05-21. It trained
+  faster than seq-2048, reached the best validation loss so far (`1.638211`
+  after 157.12 minutes), and wrote
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_5k_suffix_20s-20260521-033427.md`.
+  The step-5000 samples still failed the quality gate: ordinary prompts looped
+  around prompt words, and the `def fibonacci(n):` prompt repeated malformed
+  function names instead of code.
+- Resuming the seq-1024 suffix checkpoint toward 10k was stopped at step 7000
+  after validation regressed (`1.736814 -> 1.951241 -> 1.934933 -> 1.897121 ->
+  1.816883`). A separate step-7000 sample report at
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_5k_suffix_20s-step7000-samples-20260521.md`
+  showed the same function-name and phrase-loop failures. More steps on this
+  recipe did not justify continuing to 10k.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -333,7 +347,8 @@ base samples are no longer dominated by repeated phrases.
 Concrete next run: stop spending A100 time on the same 10-shard data/seq-2048
 setup. The suffix objective and 20-shard data run improved validation loss but
 did not clear the sample gate, so the next useful Milestone 3 candidate should
-change sequence-length or generation pressure rather than only adding data. A
-shorter seq-1024 suffix recipe is the next clean comparison because it can show
-whether the current model is wasting the small training budget on long-context
-reconstruction before it learns short continuation quality.
+change train/sample alignment rather than only adding data or steps. The current
+suffix runs train with a random visible prefix between 25% and 75% of the
+sequence, while the fixed prompts are very short. The next clean comparison is a
+seq-1024 suffix run with a short visible prefix range (`0.0` to `0.25`) to test
+whether short-prompt continuation quality improves.
