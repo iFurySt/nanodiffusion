@@ -78,6 +78,17 @@ Known evidence:
   shards.
 - The sample path works, but the 500-step model repeats heavily. That run is an
   engineering sanity check, not a quality baseline.
+- `runs/diffusion_speedrun_a100.sh` completed a 10-shard, d20, seq 2048,
+  5k-step run on 8xA100-80GB on 2026-05-20. It produced checkpoints every
+  1000 steps, a markdown report, and a final validation diffusion loss of
+  3.054810 after 167.64 minutes at roughly 260k tokens/sec.
+- The 5k base samples are better than the 500-step sanity run but remain
+  dominated by repeated short phrases and factual drift. This checkpoint is a
+  reproducible engineering baseline, not the selected quality baseline.
+- `runs/diffusion_sft_a100.sh` completed a 100-step 8xA100 smoke run from that
+  base checkpoint after fixing optional SmolTalk imports and tiny-dataset DDP
+  cursor wrapping. The smoke verified checkpoint loading, response-only
+  masking, before/after sample reporting, and SFT checkpoint writing.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -274,14 +285,9 @@ Acceptance gate:
 
 ## Immediate Next Action
 
-Create `runs/diffusion_speedrun_a100.sh` from the successful 8xA100 run, but
-scale it to a real baseline:
-
-- 10-20 ClimbMix shards
-- `d20`, `seq_len=2048`
-- `5k` steps
-- checkpoint/sample every `1000` steps
-- report final loss, throughput, memory, and fixed samples
+Use the completed 10-shard A100 run as the first reproducible engineering
+baseline, then improve quality with the Milestone 2 and 3 sampler/training
+sweeps before treating SFT outputs as model-quality evidence.
 
 Then use that run to decide whether the next bottleneck is training length,
 masking schedule, or sampler repetition.

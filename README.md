@@ -133,6 +133,24 @@ The older `runs/diffusion_speedrun.sh` is kept as a minimal base-training
 entrypoint. The A100/H100 script is the teaching recipe that records commands,
 losses, throughput, memory, and fixed-prompt samples.
 
+Observed 8xA100-80GB reference run, 2026-05-20:
+
+```text
+model_tag: diffusion_a100_d20_s2048_5k
+data_shards: 10
+parameters: 897,516,786
+training_time: 167.64m
+throughput: ~260k tokens/sec
+peak_memory: 64.3GiB per rank during training
+minimum_validation_diffusion_loss: 3.054810
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s2048_5k-*.md
+```
+
+This is a reproducible engineering baseline, not a quality baseline yet. The
+fixed-prompt samples improve over the 500-step sanity run but still show short
+phrase repetition, so treat SFT from this checkpoint as a pipeline smoke test
+unless you extend or improve the base recipe.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:
