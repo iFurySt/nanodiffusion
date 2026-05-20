@@ -40,7 +40,6 @@ from nanochat.common import (
 from nanochat.diffusion import get_mask_token_id, masked_diffusion_loss
 from tasks.common import TaskMixture
 from tasks.customjson import CustomJSON
-from tasks.smoltalk import SmolTalk
 
 
 def parse_args():
@@ -84,6 +83,8 @@ def build_dataset(args):
             )
         tasks.append(CustomJSON(filepath=data_jsonl))
     if args.include_smoltalk:
+        from tasks.smoltalk import SmolTalk
+
         tasks.append(SmolTalk(split="train"))
     if not tasks:
         raise ValueError("No SFT data selected")
