@@ -195,6 +195,17 @@ python -m scripts.diffusion_chat_cli \
   --model-tag=diffusion_d20_sft
 ```
 
+For the A100/H100 recipe after a base speedrun:
+
+```bash
+bash runs/diffusion_sft_a100.sh
+```
+
+The script writes a small curated JSONL if none is provided, samples fixed chat
+prompts before SFT, trains response-only diffusion SFT, then samples the same
+prompts from the SFT checkpoint. Use `SFT_DATA_PATH=/path/to/data.jsonl` or
+`INCLUDE_SMOLTALK=1` to change the data mix.
+
 ## Important Files
 
 ```text
@@ -207,6 +218,7 @@ scripts/diffusion_sample_sweep.py Fixed-prompt sampler comparison report
 scripts/diffusion_chat_sft.py    Prompt-fixed, answer-only masked SFT
 scripts/diffusion_chat_cli.py    Minimal interactive diffusion sampler
 runs/diffusion_speedrun_a100.sh  8xA100/H100 baseline recipe with reports
+runs/diffusion_sft_a100.sh       Response-only diffusion SFT recipe
 runs/diffusion_speedrun.sh       Minimal 8xGPU base training entrypoint
 runs/diffusion_runcpu.sh         Tiny CPU/MPS learning run
 docs/diffusion_language_model_research.md
