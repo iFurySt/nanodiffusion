@@ -77,6 +77,8 @@ def parse_args():
     parser.add_argument("--warmdown-ratio", type=float, default=0.65)
     parser.add_argument("--final-lr-frac", type=float, default=0.05)
     parser.add_argument("--mask-eps", type=float, default=1e-3)
+    parser.add_argument("--mask-max-prob", type=float, default=1.0)
+    parser.add_argument("--no-mask-loss-reweight", action="store_true")
     parser.add_argument("--resume-from-step", type=int, default=-1)
     # Evaluation / output
     parser.add_argument("--eval-every", type=int, default=250)
@@ -119,7 +121,14 @@ def evaluate_diffusion_loss(model, tokenizer, device, args, mask_token_id, ddp_w
     total_batches = 0
     for _ in range(args.eval_batches):
         clean_ids, _targets = next(loader)
-        loss, _metrics = masked_diffusion_loss(model, clean_ids, mask_token_id, eps=args.mask_eps)
+        loss, _metrics = masked_diffusion_loss(
+            model,
+            clean_ids,
+            mask_token_id,
+            eps=args.mask_eps,
+            max_mask_prob=args.mask_max_prob,
+            loss_reweight=not args.no_mask_loss_reweight,
+        )
         total_loss += loss
         total_batches += 1
     if is_ddp_initialized():
@@ -295,7 +304,14 @@ def main():
         synchronize()
         t0 = time.time()
         for micro_step in range(grad_accum_steps):
-            loss, metrics = masked_diffusion_loss(train_model, clean_ids, mask_token_id, eps=args.mask_eps)
+            loss, metrics = masked_diffusion_loss(
+                train_model,
+                clean_ids,
+                mask_token_id,
+                eps=args.mask_eps,
+                max_mask_prob=args.mask_max_prob,
+                loss_reweight=not args.no_mask_loss_reweight,
+            )
             train_loss = loss.detach()
             (loss / grad_accum_steps).backward()
             clean_ids, _next_token_targets, dataloader_state_dict = next(train_loader)
@@ -345,6 +361,8 @@ def main():
             "Calculated number of iterations": num_iterations,
             "Total batch size": total_batch_size,
             "Mask token id": mask_token_id,
+            "Mask max probability": args.mask_max_prob,
+            "Mask loss reweight": not args.no_mask_loss_reweight,
         },
         {
             "Minimum validation diffusion loss": min_val_loss,

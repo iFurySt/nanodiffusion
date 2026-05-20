@@ -37,6 +37,9 @@ def parse_args():
     parser.add_argument("--step", type=int, default=None)
     parser.add_argument("--device-batch-size", type=int, default=16)
     parser.add_argument("--eval-batches", type=int, default=20)
+    parser.add_argument("--mask-eps", type=float, default=1e-3)
+    parser.add_argument("--mask-max-prob", type=float, default=1.0)
+    parser.add_argument("--no-mask-loss-reweight", action="store_true")
     parser.add_argument("--prompt", type=str, default="The capital of France is")
     parser.add_argument("--max-tokens", type=int, default=32)
     parser.add_argument("--steps", type=int, default=None)
@@ -61,7 +64,14 @@ def evaluate_loss(model, tokenizer, device, args, mask_token_id, ddp_world_size)
     total_batches = 0
     for _ in range(args.eval_batches):
         clean_ids, _targets = next(loader)
-        loss, _metrics = masked_diffusion_loss(model, clean_ids, mask_token_id)
+        loss, _metrics = masked_diffusion_loss(
+            model,
+            clean_ids,
+            mask_token_id,
+            eps=args.mask_eps,
+            max_mask_prob=args.mask_max_prob,
+            loss_reweight=not args.no_mask_loss_reweight,
+        )
         total_loss += loss
         total_batches += 1
     if is_ddp_initialized():

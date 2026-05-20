@@ -114,6 +114,15 @@ def test_make_masked_batch_respects_eligible_mask():
     assert torch.equal(batch.targets[:, :3], torch.full_like(batch.targets[:, :3], -1))
 
 
+def test_make_masked_batch_respects_max_mask_probability():
+    clean = torch.arange(24, dtype=torch.long).view(4, 6)
+    generator = torch.Generator(device=clean.device).manual_seed(123)
+    batch = make_masked_batch(clean, mask_token_id=99, eps=0.1, generator=generator, max_mask_prob=0.4)
+
+    assert batch.mask_prob.max().item() <= 0.4
+    assert batch.mask.any(dim=1).all()
+
+
 def test_bidirectional_gpt_diffusion_loss_backward():
     model = build_tiny_bidirectional_model()
     clean = torch.randint(0, 16, (2, 8), dtype=torch.long)

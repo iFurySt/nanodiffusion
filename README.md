@@ -151,6 +151,16 @@ fixed-prompt samples improve over the 500-step sanity run but still show short
 phrase repetition, so treat SFT from this checkpoint as a pipeline smoke test
 unless you extend or improve the base recipe.
 
+Useful sweep overrides for the next base runs:
+
+```bash
+MASK_MAX_PROB=0.7 bash runs/diffusion_speedrun_a100.sh
+MASK_LOSS_REWEIGHT=0 bash runs/diffusion_speedrun_a100.sh
+```
+
+The defaults keep the original simple LLaDA/MDLM-style objective: sampled mask
+probability up to `1.0` and per-token loss divided by the row mask probability.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:

@@ -33,7 +33,7 @@ def get_diffusion_vocab_size(tokenizer):
     return tokenizer.get_vocab_size() + 1
 
 
-def make_masked_batch(clean_ids, mask_token_id, eps=1e-3, generator=None, eligible_mask=None):
+def make_masked_batch(clean_ids, mask_token_id, eps=1e-3, generator=None, eligible_mask=None, max_mask_prob=1.0):
     """
     Build one LLaDA/MDLM-style masked batch.
 
@@ -45,6 +45,9 @@ def make_masked_batch(clean_ids, mask_token_id, eps=1e-3, generator=None, eligib
         eligible_mask: optional bool tensor of shape (B, T). Only eligible
             positions can be masked and trained. This is used by SFT to keep
             prompt tokens fixed and train only answer tokens.
+        max_mask_prob: upper bound for the sampled mask probability. Keeping
+            this below 1.0 is a simple sweep knob for avoiding nearly blank
+            inputs.
 
     Returns:
         DiffusionBatch where targets are -1 for unmasked positions.
@@ -52,11 +55,12 @@ def make_masked_batch(clean_ids, mask_token_id, eps=1e-3, generator=None, eligib
     assert clean_ids.dtype == torch.long
     assert clean_ids.ndim == 2
     assert eps > 0 and eps < 1
+    assert max_mask_prob > eps and max_mask_prob <= 1
     B, T = clean_ids.shape
     device = clean_ids.device
 
     t = torch.rand((B, 1), device=device, generator=generator)
-    mask_prob = eps + (1.0 - eps) * t
+    mask_prob = eps + (max_mask_prob - eps) * t
     if eligible_mask is None:
         eligible_mask = torch.ones((B, T), dtype=torch.bool, device=device)
     else:
@@ -82,14 +86,32 @@ def make_masked_batch(clean_ids, mask_token_id, eps=1e-3, generator=None, eligib
     return DiffusionBatch(input_ids=input_ids, targets=targets, mask=mask, mask_prob=mask_prob)
 
 
-def masked_diffusion_loss(model, clean_ids, mask_token_id, eps=1e-3, generator=None, eligible_mask=None):
+def masked_diffusion_loss(
+    model,
+    clean_ids,
+    mask_token_id,
+    eps=1e-3,
+    generator=None,
+    eligible_mask=None,
+    max_mask_prob=1.0,
+    loss_reweight=True,
+):
     """
     Compute the continuous-time masked diffusion objective.
 
-    The per-token CE is divided by the row's mask probability, matching the
-    simple LLaDA/MDLM estimator. The final loss is normalized by B*T.
+    The per-token CE is divided by the row's mask probability by default,
+    matching the simple LLaDA/MDLM estimator. `max_mask_prob` and
+    `loss_reweight` are explicit sweep knobs for the first training recipe
+    search.
     """
-    batch = make_masked_batch(clean_ids, mask_token_id, eps=eps, generator=generator, eligible_mask=eligible_mask)
+    batch = make_masked_batch(
+        clean_ids,
+        mask_token_id,
+        eps=eps,
+        generator=generator,
+        eligible_mask=eligible_mask,
+        max_mask_prob=max_mask_prob,
+    )
     logits = model(batch.input_ids)
     vocab_size = logits.size(-1)
     per_token = F.cross_entropy(
@@ -98,7 +120,7 @@ def masked_diffusion_loss(model, clean_ids, mask_token_id, eps=1e-3, generator=N
         ignore_index=-1,
         reduction="none",
     ).view_as(clean_ids)
-    weighted = per_token / batch.mask_prob
+    weighted = per_token / batch.mask_prob if loss_reweight else per_token
     loss = weighted.sum() / clean_ids.numel()
     metrics = {
         "loss": loss.detach(),

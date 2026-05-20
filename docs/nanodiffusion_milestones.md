@@ -92,6 +92,10 @@ Known evidence:
 - The sampler now supports `--no-repeat-ngram-size`; a step-5000 A100 sample
   report showed that trigram blocking reduces exact loops on the same
   checkpoint, but does not solve the quality issue by itself.
+- Base training now exposes the Milestone 3 masking-objective knobs
+  `--mask-max-prob` and `--no-mask-loss-reweight`, so the next fresh runs can
+  compare the current LLaDA/MDLM-style objective with capped masking or no
+  `/ p_mask` weighting.
 
 ## Milestone 1: Reproducible Base Speedrun
 

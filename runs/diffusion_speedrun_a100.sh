@@ -24,6 +24,8 @@ DEVICE_BATCH_SIZE="${DEVICE_BATCH_SIZE:-16}"
 TOTAL_BATCH_SIZE="${TOTAL_BATCH_SIZE:-524288}"
 TRAIN_STEPS="${TRAIN_STEPS:-5000}"
 WARMUP_STEPS="${WARMUP_STEPS:-100}"
+MASK_MAX_PROB="${MASK_MAX_PROB:-1.0}"
+MASK_LOSS_REWEIGHT="${MASK_LOSS_REWEIGHT:-1}"
 EVAL_EVERY="${EVAL_EVERY:-500}"
 EVAL_BATCHES="${EVAL_BATCHES:-20}"
 SAVE_EVERY="${SAVE_EVERY:-1000}"
@@ -60,6 +62,9 @@ fi
 if [ "$RESUME_FROM_STEP" != "-1" ]; then
   torch_args+=(--resume-from-step="$RESUME_FROM_STEP")
 fi
+if [ "$MASK_LOSS_REWEIGHT" = "0" ]; then
+  torch_args+=(--no-mask-loss-reweight)
+fi
 
 commit="$(git rev-parse HEAD 2>/dev/null || cat .sync/source_commit 2>/dev/null || echo unknown)"
 append_report "# NanoDiffusion A100 Speedrun"
@@ -74,6 +79,8 @@ append_report "- depth: \`$DEPTH\`"
 append_report "- max_seq_len: \`$MAX_SEQ_LEN\`"
 append_report "- train_steps: \`$TRAIN_STEPS\`"
 append_report "- resume_from_step: \`$RESUME_FROM_STEP\`"
+append_report "- mask_max_prob: \`$MASK_MAX_PROB\`"
+append_report "- mask_loss_reweight: \`$MASK_LOSS_REWEIGHT\`"
 append_report "- total_batch_size: \`$TOTAL_BATCH_SIZE\`"
 append_report "- device_batch_size: \`$DEVICE_BATCH_SIZE\`"
 append_report "- nproc_per_node: \`$NPROC_PER_NODE\`"
@@ -110,6 +117,7 @@ run_python -m torch.distributed.run --standalone --nproc_per_node="$NPROC_PER_NO
   --total-batch-size="$TOTAL_BATCH_SIZE" \
   --num-iterations="$TRAIN_STEPS" \
   --warmup-steps="$WARMUP_STEPS" \
+  --mask-max-prob="$MASK_MAX_PROB" \
   --eval-every="$EVAL_EVERY" \
   --eval-batches="$EVAL_BATCHES" \
   --save-every="$SAVE_EVERY" \
