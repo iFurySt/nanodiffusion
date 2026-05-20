@@ -189,6 +189,22 @@ continuation, but it is still not the selected quality baseline: samples remain
 dominated by topical loops, factual drift, and code-prompt failures. Do not use
 this checkpoint as the quality SFT base.
 
+A fresh 20-shard suffix run with the same model and sequence length completed
+after that:
+
+```text
+model_tag: diffusion_a100_d20_s2048_5k_suffix_20s
+data_shards: 20
+training_time: 167.35m
+minimum_validation_diffusion_loss: 1.668640
+final_eval_loss: 1.791036
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s2048_5k_suffix_20s-20260521-001927.md
+```
+
+It slightly improved the best validation loss, but fixed-prompt samples still
+failed the same quality gate: phrase/list loops, factual drift, and no usable
+code continuation. The selected quality baseline is still open.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:

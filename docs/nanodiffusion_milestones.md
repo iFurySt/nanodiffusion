@@ -122,6 +122,14 @@ Known evidence:
   Despite the lower loss, step-5000 fixed-prompt samples still had topic loops,
   factual drift, and code-prompt failures, so this is useful objective evidence
   but still not the selected quality baseline.
+- A fresh 20-shard suffix candidate
+  `diffusion_a100_d20_s2048_5k_suffix_20s` completed on 2026-05-21 with the
+  same d20 seq-2048 setup. It reached a slightly lower minimum validation loss
+  of `1.668640` after 167.35 minutes and wrote
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s2048_5k_suffix_20s-20260521-001927.md`.
+  The samples still failed the quality gate with list-like repetitions,
+  malformed factual continuations, and unusable `def fibonacci` output. More
+  shards alone did not produce the selected baseline.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -323,8 +331,9 @@ quality baseline is still open, and SFT should remain blocked until fixed-prompt
 base samples are no longer dominated by repeated phrases.
 
 Concrete next run: stop spending A100 time on the same 10-shard data/seq-2048
-setup. The suffix objective improved validation loss but did not clear the
-sample gate, so the next useful Milestone 3 candidate should change the data or
-sequence-length pressure, for example a fresh `MASK_PATTERN=suffix` run with
-more ClimbMix shards, or a shorter seq-1024 recipe that can compare more data
-and checkpoints in the same wall-clock budget.
+setup. The suffix objective and 20-shard data run improved validation loss but
+did not clear the sample gate, so the next useful Milestone 3 candidate should
+change sequence-length or generation pressure rather than only adding data. A
+shorter seq-1024 suffix recipe is the next clean comparison because it can show
+whether the current model is wasting the small training budget on long-context
+reconstruction before it learns short continuation quality.
