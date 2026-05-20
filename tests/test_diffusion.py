@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from types import SimpleNamespace
 
 from nanochat.diffusion import (
     get_diffusion_vocab_size,
@@ -9,6 +10,7 @@ from nanochat.diffusion import (
     sample_masked_diffusion,
 )
 from nanochat.gpt import GPT, GPTConfig
+from scripts.diffusion_chat_sft import sft_loader
 
 
 class TinyTokenizer:
@@ -58,6 +60,26 @@ class FixedLogitModel(nn.Module):
         logits[..., 4] = 2.0
         logits[..., 5] = 1.0
         return logits
+
+
+class TinyConversationTokenizer:
+    def get_bos_token_id(self):
+        return 0
+
+    def render_conversation(self, conversation, max_tokens):
+        del conversation, max_tokens
+        return [1, 2, 3], [0, 1, 1]
+
+
+class TinyConversationDataset:
+    def __init__(self, rows):
+        self.rows = rows
+
+    def __len__(self):
+        return len(self.rows)
+
+    def __getitem__(self, index):
+        return self.rows[index]
 
 
 def test_mask_token_extends_tokenizer_vocab():
@@ -193,3 +215,22 @@ def test_sample_masked_diffusion_repeat_penalty_affects_output():
 
     assert baseline == [1, 3, 3, 3]
     assert penalized == [1, 3, 4, 3]
+
+
+def test_sft_loader_wraps_rank_cursor_for_tiny_datasets():
+    dataset = TinyConversationDataset([{"messages": []} for _ in range(4)])
+    tokenizer = TinyConversationTokenizer()
+    args = SimpleNamespace(max_seq_len=5, device_batch_size=1)
+
+    loader = sft_loader(
+        dataset,
+        tokenizer,
+        args,
+        device=torch.device("cpu"),
+        ddp_rank=7,
+        ddp_world_size=8,
+    )
+    clean_ids, eligible_mask = next(loader)
+
+    assert clean_ids.tolist() == [[1, 2, 3, 0, 0]]
+    assert eligible_mask.tolist() == [[False, True, True, False, False]]

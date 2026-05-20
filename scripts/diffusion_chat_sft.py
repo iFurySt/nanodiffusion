@@ -97,8 +97,8 @@ def sft_loader(dataset, tokenizer, args, device, ddp_rank, ddp_world_size):
     """Yield clean ids and eligible assistant-token masks."""
     row_capacity = args.max_seq_len
     bos_token = tokenizer.get_bos_token_id()
-    cursor = ddp_rank
     dataset_size = len(dataset)
+    cursor = ddp_rank % dataset_size
     use_cuda = device.type == "cuda"
 
     while True:
