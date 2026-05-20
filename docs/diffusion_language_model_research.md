@@ -346,6 +346,18 @@ The first fork should be "nanochat, but `base_train` becomes denoising masked
 tokens with a bidirectional Transformer." Once that works end to end, add SFT
 and block sampling.
 
+The current public recipe lives in:
+
+- `runs/diffusion_speedrun_a100.sh` for base masked diffusion pretraining.
+- `scripts/diffusion_sample_sweep.py` for fixed-prompt sampling comparisons.
+- `runs/diffusion_sft_a100.sh` for prompt-fixed, answer-only diffusion SFT.
+
+What is borrowed from LLaDA/MDLM: reserved mask id, randomly sampled mask
+probabilities, bidirectional denoising, response-only SFT, and confidence-based
+iterative generation. What is simplified for NanoDiffusion: fixed-length
+generation, a compact nanochat-style Transformer, simple top-k/temperature
+sampling, and a small repeat penalty instead of a full remasking scheduler.
+
 ## Source Index
 
 - LLaDA paper: https://arxiv.org/abs/2502.09992

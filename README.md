@@ -241,6 +241,48 @@ spirit to:
 See [docs/diffusion_language_model_research.md](docs/diffusion_language_model_research.md)
 for the initial project notes and implementation plan.
 
+## Troubleshooting
+
+Hugging Face downloads:
+
+```bash
+export NANOCHAT_DATASET_BASE_URL=https://huggingface.co/datasets/karpathy/climbmix-400b-shuffle/resolve/main
+```
+
+If your network needs a mirror, set `NANOCHAT_DATASET_BASE_URL` to a compatible
+mirror before running `nanochat.dataset`.
+
+CUDA memory:
+
+- Reduce `DEVICE_BATCH_SIZE` first.
+- Then reduce `MAX_SEQ_LEN` from `2048` to `1024`.
+- Keep `TOTAL_BATCH_SIZE` divisible by `DEVICE_BATCH_SIZE * MAX_SEQ_LEN * NPROC_PER_NODE`.
+
+`torchrun` arguments:
+
+- Put training-script flags after `--` when invoking a module through
+  `torchrun -m`, for example:
+
+```bash
+torchrun --standalone --nproc_per_node=8 -m scripts.diffusion_base_train -- --run=my_run
+```
+
+Checkpoint paths:
+
+```text
+$NANODIFFUSION_BASE_DIR/diffusion_checkpoints/<model-tag>/
+$NANODIFFUSION_BASE_DIR/diffusion_sft_checkpoints/<model-tag>/
+```
+
+Resume base training:
+
+```bash
+python -m torch.distributed.run --standalone --nproc_per_node=8 \
+  -m scripts.diffusion_base_train -- \
+  --model-tag=diffusion_a100_d20_s2048_5k \
+  --resume-from-step=1000
+```
+
 ## Attribution
 
 NanoDiffusion is forked from Andrej Karpathy's
