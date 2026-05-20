@@ -56,7 +56,7 @@ if [ "$COMPILE" = "1" ]; then
   torch_args+=(--compile)
 fi
 
-commit="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
+commit="$(git rev-parse HEAD 2>/dev/null || cat .sync/source_commit 2>/dev/null || echo unknown)"
 append_report "# NanoDiffusion A100 Speedrun"
 append_report ""
 append_report "- started: $(date)"
