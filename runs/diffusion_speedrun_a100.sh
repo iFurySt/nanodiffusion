@@ -66,6 +66,11 @@ if [ "$MASK_LOSS_REWEIGHT" = "0" ]; then
   torch_args+=(--no-mask-loss-reweight)
 fi
 
+eval_args=(--mask-max-prob="$MASK_MAX_PROB")
+if [ "$MASK_LOSS_REWEIGHT" = "0" ]; then
+  eval_args+=(--no-mask-loss-reweight)
+fi
+
 commit="$(git rev-parse HEAD 2>/dev/null || cat .sync/source_commit 2>/dev/null || echo unknown)"
 append_report "# NanoDiffusion A100 Speedrun"
 append_report ""
@@ -159,6 +164,7 @@ run_python -m scripts.diffusion_base_eval \
   --max-tokens="$SAMPLE_MAX_TOKENS" \
   --temperature=0.8 \
   --top-k=50 \
+  "${eval_args[@]}" \
   --repeat-penalty=0.5 \
   --no-repeat-ngram-size="$SAMPLE_NO_REPEAT_NGRAM_SIZE" 2>&1 | tee "$EVAL_LOG" | tee -a "$REPORT_FILE"
 append_report '```'
