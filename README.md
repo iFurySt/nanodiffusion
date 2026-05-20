@@ -156,10 +156,14 @@ Useful sweep overrides for the next base runs:
 ```bash
 MASK_MAX_PROB=0.7 bash runs/diffusion_speedrun_a100.sh
 MASK_LOSS_REWEIGHT=0 bash runs/diffusion_speedrun_a100.sh
+MASK_PATTERN=suffix bash runs/diffusion_speedrun_a100.sh
 ```
 
 The defaults keep the original simple LLaDA/MDLM-style objective: sampled mask
 probability up to `1.0` and per-token loss divided by the row mask probability.
+`MASK_PATTERN=suffix` keeps a random prefix visible and trains diffusion only on
+the suffix, which is the next candidate for aligning base training with
+fixed-prompt continuation.
 
 Additional A100 sweeps on 2026-05-20 showed that simply extending this 10-shard
 baseline to 10k steps, or retraining with `MASK_LOSS_REWEIGHT=0`, did not clear

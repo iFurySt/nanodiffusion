@@ -100,6 +100,10 @@ Known evidence:
   `--mask-max-prob` and `--no-mask-loss-reweight`, so the next fresh runs can
   compare the current LLaDA/MDLM-style objective with capped masking or no
   `/ p_mask` weighting.
+- Base training now also exposes `--mask-pattern=suffix`, which keeps a random
+  prefix visible and trains masked diffusion only on the suffix. This is the
+  next train/sample alignment candidate because the public samples are
+  fixed-prompt continuations.
 - Resuming the 10-shard d20 seq-2048 baseline from step 5000 toward 10k was
   stopped after validation worsened through roughly step 7500. More steps on
   the same objective did not look promising.

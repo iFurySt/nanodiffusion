@@ -79,6 +79,9 @@ def parse_args():
     parser.add_argument("--mask-eps", type=float, default=1e-3)
     parser.add_argument("--mask-max-prob", type=float, default=1.0)
     parser.add_argument("--no-mask-loss-reweight", action="store_true")
+    parser.add_argument("--mask-pattern", type=str, default="full", choices=["full", "suffix"])
+    parser.add_argument("--prefix-min-frac", type=float, default=0.25)
+    parser.add_argument("--prefix-max-frac", type=float, default=0.75)
     parser.add_argument("--resume-from-step", type=int, default=-1)
     # Evaluation / output
     parser.add_argument("--eval-every", type=int, default=250)
@@ -128,6 +131,9 @@ def evaluate_diffusion_loss(model, tokenizer, device, args, mask_token_id, ddp_w
             eps=args.mask_eps,
             max_mask_prob=args.mask_max_prob,
             loss_reweight=not args.no_mask_loss_reweight,
+            mask_pattern=args.mask_pattern,
+            min_prefix_frac=args.prefix_min_frac,
+            max_prefix_frac=args.prefix_max_frac,
         )
         total_loss += loss
         total_batches += 1
@@ -311,6 +317,9 @@ def main():
                 eps=args.mask_eps,
                 max_mask_prob=args.mask_max_prob,
                 loss_reweight=not args.no_mask_loss_reweight,
+                mask_pattern=args.mask_pattern,
+                min_prefix_frac=args.prefix_min_frac,
+                max_prefix_frac=args.prefix_max_frac,
             )
             train_loss = loss.detach()
             (loss / grad_accum_steps).backward()
@@ -363,6 +372,9 @@ def main():
             "Mask token id": mask_token_id,
             "Mask max probability": args.mask_max_prob,
             "Mask loss reweight": not args.no_mask_loss_reweight,
+            "Mask pattern": args.mask_pattern,
+            "Prefix min fraction": args.prefix_min_frac,
+            "Prefix max fraction": args.prefix_max_frac,
         },
         {
             "Minimum validation diffusion loss": min_val_loss,

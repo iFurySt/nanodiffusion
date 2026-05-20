@@ -33,6 +33,24 @@ def get_diffusion_vocab_size(tokenizer):
     return tokenizer.get_vocab_size() + 1
 
 
+def make_suffix_eligible_mask(clean_ids, min_prefix_frac=0.25, max_prefix_frac=0.75, generator=None):
+    """
+    Select a random visible prefix per row and train only the suffix.
+
+    This is a continuation-style objective: prompt-like prefix tokens stay
+    fixed, while the suffix is eligible for masked diffusion loss.
+    """
+    assert clean_ids.ndim == 2
+    assert 0 <= min_prefix_frac <= max_prefix_frac < 1
+    B, T = clean_ids.shape
+    device = clean_ids.device
+    min_prefix = min(T - 1, max(0, round(T * min_prefix_frac)))
+    max_prefix = min(T - 1, max(min_prefix, round(T * max_prefix_frac)))
+    prefix_lens = torch.randint(min_prefix, max_prefix + 1, (B, 1), device=device, generator=generator)
+    positions = torch.arange(T, device=device).view(1, T)
+    return positions >= prefix_lens
+
+
 def make_masked_batch(clean_ids, mask_token_id, eps=1e-3, generator=None, eligible_mask=None, max_mask_prob=1.0):
     """
     Build one LLaDA/MDLM-style masked batch.
@@ -95,6 +113,9 @@ def masked_diffusion_loss(
     eligible_mask=None,
     max_mask_prob=1.0,
     loss_reweight=True,
+    mask_pattern="full",
+    min_prefix_frac=0.25,
+    max_prefix_frac=0.75,
 ):
     """
     Compute the continuous-time masked diffusion objective.
@@ -104,12 +125,25 @@ def masked_diffusion_loss(
     `loss_reweight` are explicit sweep knobs for the first training recipe
     search.
     """
+    if mask_pattern == "full":
+        effective_eligible_mask = eligible_mask
+    elif mask_pattern == "suffix":
+        assert eligible_mask is None, "suffix mask pattern cannot be combined with explicit eligible_mask"
+        effective_eligible_mask = make_suffix_eligible_mask(
+            clean_ids,
+            min_prefix_frac=min_prefix_frac,
+            max_prefix_frac=max_prefix_frac,
+            generator=generator,
+        )
+    else:
+        raise ValueError(f"unknown mask_pattern: {mask_pattern}")
+
     batch = make_masked_batch(
         clean_ids,
         mask_token_id,
         eps=eps,
         generator=generator,
-        eligible_mask=eligible_mask,
+        eligible_mask=effective_eligible_mask,
         max_mask_prob=max_mask_prob,
     )
     logits = model(batch.input_ids)

@@ -26,6 +26,9 @@ TRAIN_STEPS="${TRAIN_STEPS:-5000}"
 WARMUP_STEPS="${WARMUP_STEPS:-100}"
 MASK_MAX_PROB="${MASK_MAX_PROB:-1.0}"
 MASK_LOSS_REWEIGHT="${MASK_LOSS_REWEIGHT:-1}"
+MASK_PATTERN="${MASK_PATTERN:-full}"
+PREFIX_MIN_FRAC="${PREFIX_MIN_FRAC:-0.25}"
+PREFIX_MAX_FRAC="${PREFIX_MAX_FRAC:-0.75}"
 EVAL_EVERY="${EVAL_EVERY:-500}"
 EVAL_BATCHES="${EVAL_BATCHES:-20}"
 SAVE_EVERY="${SAVE_EVERY:-1000}"
@@ -69,6 +72,9 @@ if [ "$MASK_LOSS_REWEIGHT" = "0" ]; then
 fi
 
 eval_args=(--mask-max-prob="$MASK_MAX_PROB")
+eval_args+=(--mask-pattern="$MASK_PATTERN")
+eval_args+=(--prefix-min-frac="$PREFIX_MIN_FRAC")
+eval_args+=(--prefix-max-frac="$PREFIX_MAX_FRAC")
 if [ "$MASK_LOSS_REWEIGHT" = "0" ]; then
   eval_args+=(--no-mask-loss-reweight)
 fi
@@ -91,6 +97,9 @@ append_report "- train_steps: \`$TRAIN_STEPS\`"
 append_report "- resume_from_step: \`$RESUME_FROM_STEP\`"
 append_report "- mask_max_prob: \`$MASK_MAX_PROB\`"
 append_report "- mask_loss_reweight: \`$MASK_LOSS_REWEIGHT\`"
+append_report "- mask_pattern: \`$MASK_PATTERN\`"
+append_report "- prefix_min_frac: \`$PREFIX_MIN_FRAC\`"
+append_report "- prefix_max_frac: \`$PREFIX_MAX_FRAC\`"
 append_report "- sample_remask_low_confidence: \`$SAMPLE_REMASK_LOW_CONFIDENCE\`"
 append_report "- sample_block_size: \`$SAMPLE_BLOCK_SIZE\`"
 append_report "- total_batch_size: \`$TOTAL_BATCH_SIZE\`"
@@ -130,6 +139,9 @@ run_python -m torch.distributed.run --standalone --nproc_per_node="$NPROC_PER_NO
   --num-iterations="$TRAIN_STEPS" \
   --warmup-steps="$WARMUP_STEPS" \
   --mask-max-prob="$MASK_MAX_PROB" \
+  --mask-pattern="$MASK_PATTERN" \
+  --prefix-min-frac="$PREFIX_MIN_FRAC" \
+  --prefix-max-frac="$PREFIX_MAX_FRAC" \
   --eval-every="$EVAL_EVERY" \
   --eval-batches="$EVAL_BATCHES" \
   --save-every="$SAVE_EVERY" \
