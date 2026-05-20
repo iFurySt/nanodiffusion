@@ -171,6 +171,24 @@ the repetition quality gate. The no-reweight run was stopped at step 3000 after
 validation stopped improving; step 2000 had the lowest loss, but fixed-prompt
 samples were still dominated by short loops.
 
+A suffix-objective run (`MASK_PATTERN=suffix`, random visible prefix between
+25% and 75% of the sequence) reached a much lower validation loss after resuming
+from 2k to 5k steps:
+
+```text
+model_tag: diffusion_a100_d20_s2048_2k_suffix
+run_name: diffusion_a100_d20_s2048_2k_suffix_resume5k
+training_time: 167.58m for the 2k->5k resume
+minimum_validation_diffusion_loss: 1.687262
+final_eval_loss: 1.796170
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s2048_2k_suffix-20260520-222324.md
+```
+
+This is useful evidence that the objective better matches fixed-prompt
+continuation, but it is still not the selected quality baseline: samples remain
+dominated by topical loops, factual drift, and code-prompt failures. Do not use
+this checkpoint as the quality SFT base.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:

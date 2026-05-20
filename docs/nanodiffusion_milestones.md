@@ -113,6 +113,15 @@ Known evidence:
   `5.062482 -> 2.390366 -> 2.281531 -> 2.477968 -> 2.209973 -> 2.386717 ->
   2.340456`. Step-2000 and step-3000 samples remained repetitive, so this is a
   rejected recipe, not the selected baseline.
+- A suffix-objective candidate `diffusion_a100_d20_s2048_2k_suffix` was trained
+  to step 2000, then resumed to step 5000 on 2026-05-20/21 with
+  `MASK_PATTERN=suffix`, `PREFIX_MIN_FRAC=0.25`, and `PREFIX_MAX_FRAC=0.75`.
+  The resume run completed in 167.58 minutes on 8xA100, reached a minimum
+  validation diffusion loss of `1.687262`, and wrote
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s2048_2k_suffix-20260520-222324.md`.
+  Despite the lower loss, step-5000 fixed-prompt samples still had topic loops,
+  factual drift, and code-prompt failures, so this is useful objective evidence
+  but still not the selected quality baseline.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -309,15 +318,13 @@ Acceptance gate:
 
 ## Immediate Next Action
 
-Use the completed 10-shard A100 run as the first reproducible engineering
-baseline, then improve quality with the Milestone 2 and 3 sampler/training
-sweeps before treating SFT outputs as model-quality evidence.
+Use the completed 10-shard A100 runs as engineering evidence only. The selected
+quality baseline is still open, and SFT should remain blocked until fixed-prompt
+base samples are no longer dominated by repeated phrases.
 
-Then use that run to decide whether the next bottleneck is training length,
-masking schedule, or sampler repetition.
-
-Concrete next run: stop spending A100 time on the same 10-shard objective. The
-next useful experiment should change the train/sample alignment, for example a
-continuation-style masking objective or a shorter block-wise training recipe,
-then compare it against the existing step-5000 engineering baseline with the
-expanded fixed-prompt sampler report.
+Concrete next run: stop spending A100 time on the same 10-shard data/seq-2048
+setup. The suffix objective improved validation loss but did not clear the
+sample gate, so the next useful Milestone 3 candidate should change the data or
+sequence-length pressure, for example a fresh `MASK_PATTERN=suffix` run with
+more ClimbMix shards, or a shorter seq-1024 recipe that can compare more data
+and checkpoints in the same wall-clock budget.
