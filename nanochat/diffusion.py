@@ -108,6 +108,29 @@ def masked_diffusion_loss(model, clean_ids, mask_token_id, eps=1e-3, generator=N
     return loss, metrics
 
 
+def _banned_ngram_tokens(row_ids, mask_token_id, ngram_size, position):
+    if ngram_size <= 0:
+        return set()
+    if ngram_size == 1:
+        return {int(tok) for tok in row_ids.tolist() if int(tok) != mask_token_id}
+    if position < ngram_size - 1:
+        return set()
+
+    prefix = row_ids[position - ngram_size + 1 : position]
+    if (prefix == mask_token_id).any():
+        return set()
+    prefix = tuple(int(tok) for tok in prefix.tolist())
+
+    banned = set()
+    for start in range(0, position - ngram_size + 1):
+        ngram = row_ids[start : start + ngram_size]
+        if (ngram == mask_token_id).any():
+            continue
+        if tuple(int(tok) for tok in ngram[:-1].tolist()) == prefix:
+            banned.add(int(ngram[-1]))
+    return banned
+
+
 @torch.inference_mode()
 def sample_masked_diffusion(
     model,
@@ -120,6 +143,7 @@ def sample_masked_diffusion(
     seed=42,
     forbidden_token_ids=None,
     repeat_penalty=0.0,
+    no_repeat_ngram_size=0,
 ):
     """
     Fixed-length iterative denoising sampler.
@@ -133,6 +157,7 @@ def sample_masked_diffusion(
     assert len(prompt_tokens) <= length
     steps = steps or max(1, length - len(prompt_tokens))
     assert steps > 0
+    assert no_repeat_ngram_size >= 0
     device = model.get_device()
     rng = torch.Generator(device=device)
     rng.manual_seed(seed)
@@ -164,6 +189,14 @@ def sample_masked_diffusion(
                 seen = torch.unique(ids[row, generated[row]])
                 if seen.numel() > 0:
                     logits[row, :, seen] -= repeat_penalty
+        if no_repeat_ngram_size > 0:
+            for row in range(ids.size(0)):
+                positions = remaining[row].nonzero(as_tuple=False).flatten()
+                for pos in positions.tolist():
+                    banned = _banned_ngram_tokens(ids[row], mask_token_id, no_repeat_ngram_size, pos)
+                    if banned:
+                        valid = [tok for tok in banned if 0 <= tok < logits.size(-1)]
+                        logits[row, pos, valid] = -float("inf")
         if top_k is not None and top_k > 0:
             k = min(top_k, logits.size(-1))
             vals, idx = torch.topk(logits, k, dim=-1)

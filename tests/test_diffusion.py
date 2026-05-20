@@ -217,6 +217,22 @@ def test_sample_masked_diffusion_repeat_penalty_affects_output():
     assert penalized == [1, 3, 4, 3]
 
 
+def test_sample_masked_diffusion_no_repeat_ngram_affects_output():
+    model = FixedLogitModel()
+    baseline = sample_masked_diffusion(model, mask_token_id=7, length=4, prompt_tokens=[1], steps=3)
+    no_repeat = sample_masked_diffusion(
+        model,
+        mask_token_id=7,
+        length=4,
+        prompt_tokens=[1],
+        steps=3,
+        no_repeat_ngram_size=2,
+    )
+
+    assert baseline == [1, 3, 3, 3]
+    assert no_repeat == [1, 3, 3, 4]
+
+
 def test_sft_loader_wraps_rank_cursor_for_tiny_datasets():
     dataset = TinyConversationDataset([{"messages": []} for _ in range(4)])
     tokenizer = TinyConversationTokenizer()

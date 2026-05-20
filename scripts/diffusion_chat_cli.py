@@ -33,6 +33,7 @@ def parse_args():
     parser.add_argument("-t", "--temperature", type=float, default=0.0)
     parser.add_argument("-k", "--top-k", type=int, default=None)
     parser.add_argument("--repeat-penalty", type=float, default=0.0)
+    parser.add_argument("--no-repeat-ngram-size", type=int, default=0)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--device-type", type=str, default="", choices=["cuda", "cpu", "mps"])
     return parser.parse_args()
@@ -52,6 +53,7 @@ def render(model, tokenizer, prompt, args, mask_token_id):
         seed=args.seed,
         forbidden_token_ids=get_forbidden_sample_tokens(tokenizer),
         repeat_penalty=args.repeat_penalty,
+        no_repeat_ngram_size=args.no_repeat_ngram_size,
     )
     answer_ids = [tok for tok in ids[len(prompt_tokens):] if tok != mask_token_id]
     return prompt + tokenizer.decode(answer_ids)

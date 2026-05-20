@@ -29,6 +29,8 @@ EVAL_BATCHES="${EVAL_BATCHES:-20}"
 SAVE_EVERY="${SAVE_EVERY:-1000}"
 SAMPLE_MAX_TOKENS="${SAMPLE_MAX_TOKENS:-64}"
 SAMPLE_SEED="${SAMPLE_SEED:-42}"
+SAMPLE_NO_REPEAT_NGRAM_SIZE="${SAMPLE_NO_REPEAT_NGRAM_SIZE:-3}"
+RESUME_FROM_STEP="${RESUME_FROM_STEP:--1}"
 COMPILE="${COMPILE:-0}"
 
 mkdir -p "$NANODIFFUSION_BASE_DIR/logs" "$NANODIFFUSION_BASE_DIR/report"
@@ -55,6 +57,9 @@ torch_args=()
 if [ "$COMPILE" = "1" ]; then
   torch_args+=(--compile)
 fi
+if [ "$RESUME_FROM_STEP" != "-1" ]; then
+  torch_args+=(--resume-from-step="$RESUME_FROM_STEP")
+fi
 
 commit="$(git rev-parse HEAD 2>/dev/null || cat .sync/source_commit 2>/dev/null || echo unknown)"
 append_report "# NanoDiffusion A100 Speedrun"
@@ -68,9 +73,11 @@ append_report "- vocab_size: \`$VOCAB_SIZE\`"
 append_report "- depth: \`$DEPTH\`"
 append_report "- max_seq_len: \`$MAX_SEQ_LEN\`"
 append_report "- train_steps: \`$TRAIN_STEPS\`"
+append_report "- resume_from_step: \`$RESUME_FROM_STEP\`"
 append_report "- total_batch_size: \`$TOTAL_BATCH_SIZE\`"
 append_report "- device_batch_size: \`$DEVICE_BATCH_SIZE\`"
 append_report "- nproc_per_node: \`$NPROC_PER_NODE\`"
+append_report "- estimated_training_tokens: \`$((TRAIN_STEPS * TOTAL_BATCH_SIZE))\`"
 append_report ""
 append_report "## Commands"
 append_report ""
@@ -144,7 +151,8 @@ run_python -m scripts.diffusion_base_eval \
   --max-tokens="$SAMPLE_MAX_TOKENS" \
   --temperature=0.8 \
   --top-k=50 \
-  --repeat-penalty=0.5 2>&1 | tee "$EVAL_LOG" | tee -a "$REPORT_FILE"
+  --repeat-penalty=0.5 \
+  --no-repeat-ngram-size="$SAMPLE_NO_REPEAT_NGRAM_SIZE" 2>&1 | tee "$EVAL_LOG" | tee -a "$REPORT_FILE"
 append_report '```'
 append_report ""
 append_report "- finished: $(date)"

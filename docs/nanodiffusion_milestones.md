@@ -89,6 +89,9 @@ Known evidence:
   base checkpoint after fixing optional SmolTalk imports and tiny-dataset DDP
   cursor wrapping. The smoke verified checkpoint loading, response-only
   masking, before/after sample reporting, and SFT checkpoint writing.
+- The sampler now supports `--no-repeat-ngram-size`; a step-5000 A100 sample
+  report showed that trigram blocking reduces exact loops on the same
+  checkpoint, but does not solve the quality issue by itself.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -291,3 +294,7 @@ sweeps before treating SFT outputs as model-quality evidence.
 
 Then use that run to decide whether the next bottleneck is training length,
 masking schedule, or sampler repetition.
+
+Concrete next run: resume the 10-shard d20 seq-2048 baseline from step 5000 to
+step 10000, keeping the same objective, to check whether the still-improving
+loss and samples justify longer training before changing the masking objective.

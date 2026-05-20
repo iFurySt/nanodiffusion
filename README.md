@@ -163,8 +163,14 @@ python -m scripts.diffusion_base_eval \
   --max-tokens=32 \
   --temperature=0.8 \
   --top-k=50 \
-  --repeat-penalty=0.5
+  --repeat-penalty=0.5 \
+  --no-repeat-ngram-size=3
 ```
+
+For the current baseline, `--no-repeat-ngram-size=3` is the clearest default:
+it prevents exact repeated trigrams in the generated span. This reduces
+verbatim loops but does not fix weak base-model knowledge or planning by
+itself.
 
 Sampling is fixed-length. Prompt tokens stay fixed; the remaining positions start
 as `[MASK]` and are filled by iterative denoising.
