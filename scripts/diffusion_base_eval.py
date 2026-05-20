@@ -47,6 +47,7 @@ def parse_args():
     parser.add_argument("--top-k", type=int, default=None)
     parser.add_argument("--repeat-penalty", type=float, default=0.0)
     parser.add_argument("--no-repeat-ngram-size", type=int, default=0)
+    parser.add_argument("--block-size", type=int, default=0, help="generate answer in fixed blocks; 0 disables")
     parser.add_argument("--seed", type=int, default=42)
     return parser.parse_args()
 
@@ -95,6 +96,7 @@ def run_sample(model, tokenizer, args, mask_token_id):
         forbidden_token_ids=get_forbidden_sample_tokens(tokenizer),
         repeat_penalty=args.repeat_penalty,
         no_repeat_ngram_size=args.no_repeat_ngram_size,
+        block_size=args.block_size,
     )
     prompt_len = len(prompt_tokens)
     return args.prompt + tokenizer.decode([tok for tok in ids[prompt_len:] if tok != mask_token_id])

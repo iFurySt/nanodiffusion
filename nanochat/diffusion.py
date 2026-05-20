@@ -166,6 +166,7 @@ def sample_masked_diffusion(
     forbidden_token_ids=None,
     repeat_penalty=0.0,
     no_repeat_ngram_size=0,
+    block_size=0,
 ):
     """
     Fixed-length iterative denoising sampler.
@@ -180,6 +181,33 @@ def sample_masked_diffusion(
     steps = steps or max(1, length - len(prompt_tokens))
     assert steps > 0
     assert no_repeat_ngram_size >= 0
+    assert block_size >= 0
+
+    gen_tokens = length - len(prompt_tokens)
+    if block_size > 0 and gen_tokens > block_size:
+        output = list(prompt_tokens)
+        remaining_tokens = gen_tokens
+        while remaining_tokens > 0:
+            current_block = min(block_size, remaining_tokens)
+            current_length = len(output) + current_block
+            block_steps = max(1, round(steps * (current_block / gen_tokens)))
+            output = sample_masked_diffusion(
+                model,
+                mask_token_id=mask_token_id,
+                length=current_length,
+                prompt_tokens=output,
+                steps=block_steps,
+                temperature=temperature,
+                top_k=top_k,
+                seed=seed + len(output),
+                forbidden_token_ids=forbidden_token_ids,
+                repeat_penalty=repeat_penalty,
+                no_repeat_ngram_size=no_repeat_ngram_size,
+                block_size=0,
+            )
+            remaining_tokens -= current_block
+        return output
+
     device = model.get_device()
     rng = torch.Generator(device=device)
     rng.manual_seed(seed)

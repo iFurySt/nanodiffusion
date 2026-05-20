@@ -242,6 +242,20 @@ def test_sample_masked_diffusion_no_repeat_ngram_affects_output():
     assert no_repeat == [1, 3, 3, 4]
 
 
+def test_sample_masked_diffusion_block_generation_preserves_length():
+    model = FixedLogitModel()
+    sample = sample_masked_diffusion(
+        model,
+        mask_token_id=7,
+        length=4,
+        prompt_tokens=[1],
+        steps=3,
+        block_size=1,
+    )
+
+    assert sample == [1, 3, 3, 3]
+
+
 def test_sft_loader_wraps_rank_cursor_for_tiny_datasets():
     dataset = TinyConversationDataset([{"messages": []} for _ in range(4)])
     tokenizer = TinyConversationTokenizer()
