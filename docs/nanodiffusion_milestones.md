@@ -399,6 +399,13 @@ Known evidence:
   road/supply text instead of Paris and the Fibonacci prompt remained non-code.
   Keep this as a diagnostic sampler rather than the selected default. Report:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_score_entropy_sigma_cond_full_20s-sedd-sampler-20260522-050123.md`.
+- `DIFFUSION_SIGMA_LAYER_CONDITIONING=1` is available as the next denoiser
+  conditioning pilot. It injects a separate learned scalar `sigma` projection
+  before every transformer block, which is closer to SEDD's per-block
+  conditioning than the input-only projection. Use it with
+  `LOSS_OBJECTIVE=score_entropy`, `SCORE_PARAMETERIZATION=sigma_scaled`,
+  `MASK_MAX_PROB=0.999`, and `MASK_SAMPLING=antithetic` for the next 1k A100
+  run.
 
 ## Milestone 1: Reproducible Base Speedrun
 

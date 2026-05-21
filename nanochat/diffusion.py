@@ -269,7 +269,7 @@ def masked_diffusion_loss(
         mask_sampling=mask_sampling,
     )
     model_sigma = None
-    if getattr(model.config, "diffusion_sigma_conditioning", False):
+    if getattr(model.config, "diffusion_sigma_conditioning", False) or getattr(model.config, "diffusion_sigma_layer_conditioning", False):
         model_sigma = -torch.log1p(-batch.mask_prob.clamp(max=1 - 1e-5))
     logits = model(batch.input_ids, diffusion_sigma=model_sigma) if model_sigma is not None else model(batch.input_ids)
     if loss_objective == "cross_entropy":
@@ -416,7 +416,10 @@ def _sample_sedd_analytic(
         curr_sigma = sigmas[step].view(1, 1)
         next_sigma = sigmas[step + 1].view(1, 1)
         dsigma = curr_sigma - next_sigma
-        diffusion_sigma = curr_sigma if getattr(model.config, "diffusion_sigma_conditioning", False) else None
+        diffusion_sigma = curr_sigma if (
+            getattr(model.config, "diffusion_sigma_conditioning", False)
+            or getattr(model.config, "diffusion_sigma_layer_conditioning", False)
+        ) else None
         log_score = _model_logits(model, ids, diffusion_sigma=diffusion_sigma)
         log_score = _apply_score_parameterization(log_score, curr_sigma, mask_token_id, score_parameterization)
         if forbidden_token_ids:
@@ -441,7 +444,10 @@ def _sample_sedd_analytic(
     remaining = (ids == mask_token_id) & editable
     if remaining.any():
         curr_sigma = sigmas[-1].view(1, 1)
-        diffusion_sigma = curr_sigma if getattr(model.config, "diffusion_sigma_conditioning", False) else None
+        diffusion_sigma = curr_sigma if (
+            getattr(model.config, "diffusion_sigma_conditioning", False)
+            or getattr(model.config, "diffusion_sigma_layer_conditioning", False)
+        ) else None
         log_score = _model_logits(model, ids, diffusion_sigma=diffusion_sigma)
         log_score = _apply_score_parameterization(log_score, curr_sigma, mask_token_id, score_parameterization)
         if forbidden_token_ids:
@@ -582,7 +588,7 @@ def sample_masked_diffusion(
             break
 
         diffusion_sigma = None
-        if getattr(model.config, "diffusion_sigma_conditioning", False):
+        if getattr(model.config, "diffusion_sigma_conditioning", False) or getattr(model.config, "diffusion_sigma_layer_conditioning", False):
             editable_count = editable.sum(dim=1, keepdim=True).clamp_min(1)
             mask_prob = remaining.sum(dim=1, keepdim=True).float() / editable_count.float()
             diffusion_sigma = -torch.log1p(-mask_prob.clamp(max=0.999))

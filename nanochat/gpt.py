@@ -41,6 +41,7 @@ class GPTConfig:
     attention_mode: str = "causal"
     # Optional absorbing diffusion noise conditioning. Causal GPT checkpoints keep this disabled.
     diffusion_sigma_conditioning: bool = False
+    diffusion_sigma_layer_conditioning: bool = False
 
 
 def norm(x):
@@ -180,6 +181,9 @@ class GPT(nn.Module):
             "h": nn.ModuleList([Block(config, layer_idx) for layer_idx in range(config.n_layer)]),
         })
         self.diffusion_sigma_proj = Linear(1, config.n_embd, bias=False) if config.diffusion_sigma_conditioning else None
+        self.diffusion_sigma_layer_projs = nn.ModuleList(
+            [Linear(1, config.n_embd, bias=False) for _ in range(config.n_layer)]
+        ) if config.diffusion_sigma_layer_conditioning else None
         self.lm_head = Linear(config.n_embd, padded_vocab_size, bias=False)
         # Per-layer learnable scalars (inspired by modded-nanogpt)
         # resid_lambdas: scales the residual stream at each layer (init 1.0 = neutral)
@@ -227,6 +231,9 @@ class GPT(nn.Module):
         torch.nn.init.normal_(self.transformer.wte.weight, mean=0.0, std=0.8)
         if self.diffusion_sigma_proj is not None:
             torch.nn.init.zeros_(self.diffusion_sigma_proj.weight)
+        if self.diffusion_sigma_layer_projs is not None:
+            for proj in self.diffusion_sigma_layer_projs:
+                torch.nn.init.zeros_(proj.weight)
         torch.nn.init.normal_(self.lm_head.weight, mean=0.0, std=0.001)
 
         # Transformer blocks: uniform init with bound = sqrt(3) * std (same standard deviation as normal)
@@ -342,7 +349,7 @@ class GPT(nn.Module):
         nparams = sum(p.numel() for p in self.parameters())
         # Exclude non-matmul params: embeddings and per-layer scalars
         value_embeds_numel = sum(ve.weight.numel() for ve in self.value_embeds.values())
-        sigma_conditioning_numel = 0 if self.diffusion_sigma_proj is None else sum(p.numel() for p in self.diffusion_sigma_proj.parameters())
+        sigma_conditioning_numel = self._sigma_conditioning_numel()
         nparams_exclude = (self.transformer.wte.weight.numel() + value_embeds_numel + sigma_conditioning_numel +
                           self.resid_lambdas.numel() + self.x0_lambdas.numel() +
                           self.smear_gate.weight.numel() + self.smear_lambda.numel() + self.backout_lambda.numel())
@@ -370,7 +377,7 @@ class GPT(nn.Module):
         """
         # Count each group separately (mirrors the grouping in setup_optimizers)
         wte = sum(p.numel() for p in self.transformer.wte.parameters())
-        sigma_conditioning = 0 if self.diffusion_sigma_proj is None else sum(p.numel() for p in self.diffusion_sigma_proj.parameters())
+        sigma_conditioning = self._sigma_conditioning_numel()
         value_embeds = sum(p.numel() for p in self.value_embeds.parameters())
         lm_head = sum(p.numel() for p in self.lm_head.parameters())
         transformer_matrices = sum(p.numel() for p in self.transformer.h.parameters())
@@ -395,7 +402,7 @@ class GPT(nn.Module):
         matrix_params = list(self.transformer.h.parameters())
         value_embeds_params = list(self.value_embeds.parameters())
         embedding_params = list(self.transformer.wte.parameters())
-        sigma_conditioning_params = [] if self.diffusion_sigma_proj is None else list(self.diffusion_sigma_proj.parameters())
+        sigma_conditioning_params = self._sigma_conditioning_parameters()
         lm_head_params = list(self.lm_head.parameters())
         resid_params = [self.resid_lambdas]
         x0_params = [self.x0_lambdas]
@@ -432,6 +439,17 @@ class GPT(nn.Module):
             group["initial_lr"] = group["lr"]
         return optimizer
 
+    def _sigma_conditioning_parameters(self):
+        params = []
+        if self.diffusion_sigma_proj is not None:
+            params.extend(self.diffusion_sigma_proj.parameters())
+        if self.diffusion_sigma_layer_projs is not None:
+            params.extend(self.diffusion_sigma_layer_projs.parameters())
+        return list(params)
+
+    def _sigma_conditioning_numel(self):
+        return sum(p.numel() for p in self._sigma_conditioning_parameters())
+
     def forward(self, idx, targets=None, kv_cache=None, loss_reduction='mean', diffusion_sigma=None):
         B, T = idx.size()
 
@@ -447,10 +465,12 @@ class GPT(nn.Module):
         x = self.transformer.wte(idx) # embed current token
         x = x.to(COMPUTE_DTYPE) # ensure activations are in compute dtype (no-op usually, but active for fp16 code path)
         x = norm(x)
-        if self.diffusion_sigma_proj is not None:
+        sigma_feature = None
+        if self.diffusion_sigma_proj is not None or self.diffusion_sigma_layer_projs is not None:
             assert diffusion_sigma is not None, "diffusion_sigma is required when diffusion_sigma_conditioning=True"
             diffusion_sigma = diffusion_sigma.to(device=idx.device, dtype=torch.float32).view(B, 1)
             sigma_feature = torch.log1p(diffusion_sigma).to(x.dtype).view(B, 1, 1)
+        if self.diffusion_sigma_proj is not None:
             x = x + self.diffusion_sigma_proj(sigma_feature).view(B, 1, -1)
 
         # Smear: mix previous token's embedding into current position (cheap bigram info)
@@ -478,6 +498,8 @@ class GPT(nn.Module):
         backout_layer = n_layer // 2  # cache at halfway point
         x_backout = None
         for i, block in enumerate(self.transformer.h):
+            if self.diffusion_sigma_layer_projs is not None:
+                x = x + self.diffusion_sigma_layer_projs[i](sigma_feature).view(B, 1, -1)
             x = self.resid_lambdas[i] * x + self.x0_lambdas[i] * x0
             ve = self.value_embeds[str(i)](idx).to(x.dtype) if str(i) in self.value_embeds else None
             x = block(x, ve, cos_sin, self.window_sizes[i], kv_cache)

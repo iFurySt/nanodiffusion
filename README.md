@@ -191,6 +191,7 @@ MASK_SAMPLING=antithetic bash runs/diffusion_speedrun_a100.sh
 LOSS_OBJECTIVE=score_entropy MASK_MAX_PROB=0.999 MASK_SAMPLING=antithetic bash runs/diffusion_speedrun_a100.sh
 LOSS_OBJECTIVE=score_entropy SCORE_PARAMETERIZATION=sigma_scaled MASK_MAX_PROB=0.999 MASK_SAMPLING=antithetic bash runs/diffusion_speedrun_a100.sh
 DIFFUSION_SIGMA_CONDITIONING=1 LOSS_OBJECTIVE=score_entropy SCORE_PARAMETERIZATION=sigma_scaled MASK_MAX_PROB=0.999 MASK_SAMPLING=antithetic bash runs/diffusion_speedrun_a100.sh
+DIFFUSION_SIGMA_LAYER_CONDITIONING=1 LOSS_OBJECTIVE=score_entropy SCORE_PARAMETERIZATION=sigma_scaled MASK_MAX_PROB=0.999 MASK_SAMPLING=antithetic bash runs/diffusion_speedrun_a100.sh
 ```
 
 The defaults keep the original simple LLaDA/MDLM-style objective: sampled mask
@@ -673,6 +674,11 @@ report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_score_entropy
 The analytic sampler improved some sentence continuity, but the France prompt
 still drifted into unrelated road/supply text and the Fibonacci prompt remained
 non-code. Keep it as a diagnostic sampler, not the selected default.
+
+The next denoiser-conditioning pilot should use
+`DIFFUSION_SIGMA_LAYER_CONDITIONING=1`. This injects a separate learned scalar
+`sigma` projection before every transformer block, which is closer to SEDD's
+per-block conditioning than the input-only projection above.
 
 ## Evaluate And Sample
 
