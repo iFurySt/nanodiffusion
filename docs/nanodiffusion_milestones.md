@@ -386,6 +386,12 @@ Known evidence:
   fix; the next candidate should be deeper denoiser conditioning or a true
   SEDD-style reverse sampler, not another 1k loss-only sweep. Report:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_score_entropy_sigma_cond_full_20s-20260522-041837.md`.
+- `--sampler=sedd_analytic` is available as an opt-in sampling path. It treats
+  score-entropy model outputs as score ratios and applies SEDD-style absorbing
+  analytic reverse transitions while preserving fixed prompt tokens. The regular
+  iterative confidence-reveal sampler remains the default. Next validation should
+  be sample-only on existing score-entropy checkpoints before any further
+  training run.
 
 ## Milestone 1: Reproducible Base Speedrun
 

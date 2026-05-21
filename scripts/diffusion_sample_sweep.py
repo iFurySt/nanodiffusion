@@ -34,6 +34,7 @@ SAMPLE_RECIPES = [
     {"name": "block4_cfg1.5_no_repeat3", "temperature": 0.8, "top_k": 50, "repeat_penalty": 0.0, "no_repeat_ngram_size": 3, "block_size": 4, "steps_scale": 1.0, "remask_low_confidence": False, "cfg_scale": 1.5},
     {"name": "block8_no_repeat3", "temperature": 0.8, "top_k": 50, "repeat_penalty": 0.0, "no_repeat_ngram_size": 3, "block_size": 8, "steps_scale": 1.0, "remask_low_confidence": False},
     {"name": "block16_no_repeat3", "temperature": 0.8, "top_k": 50, "repeat_penalty": 0.0, "no_repeat_ngram_size": 3, "block_size": 16, "steps_scale": 1.0, "remask_low_confidence": False},
+    {"name": "sedd_analytic", "temperature": 0.0, "top_k": None, "repeat_penalty": 0.0, "no_repeat_ngram_size": 0, "block_size": 0, "steps_scale": 1.0, "remask_low_confidence": False, "sampler": "sedd_analytic"},
     {"name": "half_steps_repeat0.5_no_repeat3", "temperature": 0.8, "top_k": 50, "repeat_penalty": 0.5, "no_repeat_ngram_size": 3, "block_size": 0, "steps_scale": 0.5, "remask_low_confidence": False},
 ]
 
@@ -59,6 +60,9 @@ def parse_args():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--output", type=str, default="")
     parser.add_argument("--append", action="store_true")
+    parser.add_argument("--score-parameterization", type=str, default="raw", choices=["raw", "sigma_scaled"])
+    parser.add_argument("--mask-eps", type=float, default=1e-3)
+    parser.add_argument("--mask-max-prob", type=float, default=0.999)
     return parser.parse_args()
 
 
@@ -84,6 +88,10 @@ def render_sample(model, tokenizer, prompt, args, recipe, mask_token_id, forbidd
         remask_strategy=recipe.get("remask_strategy", "none"),
         cfg_scale=recipe.get("cfg_scale", 0.0),
         reveal_strategy=recipe.get("reveal_strategy", "confidence"),
+        sampler=recipe.get("sampler", "iterative"),
+        score_parameterization=args.score_parameterization,
+        mask_eps=args.mask_eps,
+        mask_max_prob=args.mask_max_prob,
     )
     answer = tokenizer.decode([tok for tok in ids[len(prompt_tokens):] if tok != mask_token_id])
     return prompt + answer
@@ -119,7 +127,8 @@ def build_report(args, model, tokenizer, meta):
                     f"remask_low_confidence={recipe['remask_low_confidence']}, "
                     f"remask_strategy={recipe.get('remask_strategy', 'none')}, "
                     f"cfg_scale={recipe.get('cfg_scale', 0.0)}, "
-                    f"reveal_strategy={recipe.get('reveal_strategy', 'confidence')})",
+                    f"reveal_strategy={recipe.get('reveal_strategy', 'confidence')}, "
+                    f"sampler={recipe.get('sampler', 'iterative')})",
                     "",
                     "```text",
                     sample,

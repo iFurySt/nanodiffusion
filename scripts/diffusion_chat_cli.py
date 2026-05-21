@@ -39,6 +39,10 @@ def parse_args():
     parser.add_argument("--remask-strategy", type=str, default="none", choices=["none", "low_confidence", "random"])
     parser.add_argument("--cfg-scale", type=float, default=0.0)
     parser.add_argument("--reveal-strategy", type=str, default="confidence", choices=["confidence", "left_to_right"])
+    parser.add_argument("--sampler", type=str, default="iterative", choices=["iterative", "sedd_analytic"])
+    parser.add_argument("--score-parameterization", type=str, default="raw", choices=["raw", "sigma_scaled"])
+    parser.add_argument("--mask-eps", type=float, default=1e-3)
+    parser.add_argument("--mask-max-prob", type=float, default=0.999)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--device-type", type=str, default="", choices=["cuda", "cpu", "mps"])
     return parser.parse_args()
@@ -64,6 +68,10 @@ def render(model, tokenizer, prompt, args, mask_token_id):
         remask_strategy=args.remask_strategy,
         cfg_scale=args.cfg_scale,
         reveal_strategy=args.reveal_strategy,
+        sampler=args.sampler,
+        score_parameterization=args.score_parameterization,
+        mask_eps=args.mask_eps,
+        mask_max_prob=args.mask_max_prob,
     )
     answer_ids = [tok for tok in ids[len(prompt_tokens):] if tok != mask_token_id]
     return prompt + tokenizer.decode(answer_ids)

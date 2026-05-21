@@ -644,6 +644,23 @@ prompt drifted into percentage/GDP fragments, and the Fibonacci prompt remained
 non-code. The remaining gap is likely deeper denoiser conditioning or a true
 SEDD-style reverse sampler rather than another 1k loss-only sweep.
 
+A SEDD-style analytic absorbing sampler is available as an opt-in sampling path:
+
+```bash
+python -m scripts.diffusion_base_eval \
+  --model-tag=diffusion_a100_d20_s1024_1k_score_entropy_sigma_cond_full_20s \
+  --step=1000 \
+  --eval=sample \
+  --sampler=sedd_analytic \
+  --score-parameterization=sigma_scaled \
+  --mask-max-prob=0.999
+```
+
+The regular iterative sampler remains the default. The analytic sampler treats
+score-entropy outputs as score ratios and applies absorbing reverse transitions,
+so it is mainly for score-entropy checkpoints rather than the cross-entropy
+baselines.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:

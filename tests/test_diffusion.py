@@ -718,6 +718,23 @@ def test_sample_masked_diffusion_block_generation_preserves_length():
     assert sample == [1, 3, 3, 3]
 
 
+def test_sample_masked_diffusion_sedd_analytic_preserves_prompt_and_finishes():
+    model = FixedLogitModel()
+    sample = sample_masked_diffusion(
+        model,
+        mask_token_id=7,
+        length=4,
+        prompt_tokens=[1],
+        steps=3,
+        sampler="sedd_analytic",
+        seed=123,
+    )
+
+    assert len(sample) == 4
+    assert sample[0] == 1
+    assert 7 not in sample[1:]
+
+
 def test_sample_masked_diffusion_remasking_preserves_prompt_and_finishes():
     model = build_tiny_bidirectional_model()
     sample = sample_masked_diffusion(

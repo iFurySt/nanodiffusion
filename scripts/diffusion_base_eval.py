@@ -60,6 +60,7 @@ def parse_args():
     parser.add_argument("--remask-strategy", type=str, default="none", choices=["none", "low_confidence", "random"])
     parser.add_argument("--cfg-scale", type=float, default=0.0)
     parser.add_argument("--reveal-strategy", type=str, default="confidence", choices=["confidence", "left_to_right"])
+    parser.add_argument("--sampler", type=str, default="iterative", choices=["iterative", "sedd_analytic"])
     parser.add_argument("--seed", type=int, default=42)
     return parser.parse_args()
 
@@ -121,6 +122,10 @@ def run_sample(model, tokenizer, args, mask_token_id):
         remask_strategy=args.remask_strategy,
         cfg_scale=args.cfg_scale,
         reveal_strategy=args.reveal_strategy,
+        sampler=args.sampler,
+        score_parameterization=args.score_parameterization,
+        mask_eps=args.mask_eps,
+        mask_max_prob=args.mask_max_prob,
     )
     prompt_len = len(prompt_tokens)
     return args.prompt + tokenizer.decode([tok for tok in ids[prompt_len:] if tok != mask_token_id])

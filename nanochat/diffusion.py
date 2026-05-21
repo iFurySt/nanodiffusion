@@ -352,6 +352,118 @@ def _banned_ngram_tokens(row_ids, mask_token_id, ngram_size, position):
     return banned
 
 
+def _model_logits(model, ids, diffusion_sigma=None):
+    if diffusion_sigma is None:
+        return model(ids)
+    return model(ids, diffusion_sigma=diffusion_sigma)
+
+
+def _apply_score_parameterization(logits, sigma, mask_token_id, score_parameterization):
+    if score_parameterization == "raw":
+        return logits
+    assert score_parameterization == "sigma_scaled"
+    esigm1_log = torch.where(
+        sigma < 0.5,
+        torch.expm1(sigma),
+        sigma.exp() - 1,
+    ).clamp_min(1e-8).log()
+    return logits - esigm1_log[..., None] - math.log(mask_token_id)
+
+
+def _sample_categorical_probs(probs, generator):
+    flat = probs.view(-1, probs.size(-1))
+    sampled = torch.multinomial(flat, 1, generator=generator).view(probs.shape[:-1])
+    return sampled
+
+
+@torch.inference_mode()
+def _sample_sedd_analytic(
+    model,
+    mask_token_id,
+    length,
+    prompt_tokens,
+    steps,
+    seed,
+    forbidden_token_ids,
+    score_parameterization,
+    mask_eps,
+    mask_max_prob,
+):
+    device = model.get_device()
+    rng = torch.Generator(device=device)
+    rng.manual_seed(seed)
+
+    ids = torch.full((1, length), mask_token_id, dtype=torch.long, device=device)
+    if prompt_tokens:
+        prompt = torch.tensor(prompt_tokens, dtype=torch.long, device=device)
+        ids[0, :len(prompt_tokens)] = prompt
+
+    editable = torch.ones((1, length), dtype=torch.bool, device=device)
+    if prompt_tokens:
+        editable[:, :len(prompt_tokens)] = False
+
+    forbidden_token_ids = set(forbidden_token_ids or [])
+    forbidden_token_ids.add(mask_token_id)
+    forbidden_token_ids = [tok for tok in forbidden_token_ids if 0 <= tok < model.config.vocab_size]
+
+    mask_probs = torch.linspace(mask_max_prob, mask_eps, steps + 1, device=device).clamp(max=1 - 1e-5)
+    sigmas = -torch.log1p(-mask_probs)
+    for step in range(steps):
+        remaining = (ids == mask_token_id) & editable
+        if not remaining.any():
+            break
+
+        curr_sigma = sigmas[step].view(1, 1)
+        next_sigma = sigmas[step + 1].view(1, 1)
+        dsigma = curr_sigma - next_sigma
+        diffusion_sigma = curr_sigma if getattr(model.config, "diffusion_sigma_conditioning", False) else None
+        log_score = _model_logits(model, ids, diffusion_sigma=diffusion_sigma)
+        log_score = _apply_score_parameterization(log_score, curr_sigma, mask_token_id, score_parameterization)
+        if forbidden_token_ids:
+            log_score[..., forbidden_token_ids] = -float("inf")
+        log_score = log_score.scatter(-1, ids.unsqueeze(-1), torch.zeros_like(log_score[..., :1]))
+        score = log_score.exp()
+
+        stag_score = score.clone()
+        extra_const = (1 - dsigma.exp()) * stag_score.sum(dim=-1)
+        stag_score = stag_score * dsigma.exp().view(1, 1, 1)
+        stag_score[..., mask_token_id] += extra_const
+
+        transition = torch.zeros_like(stag_score)
+        transition.scatter_(-1, ids.unsqueeze(-1), dsigma.neg().exp().view(1, 1, 1).expand_as(ids.unsqueeze(-1)).to(stag_score.dtype))
+        mask_transition = (ids == mask_token_id).to(stag_score.dtype).unsqueeze(-1) * (1 - dsigma.neg().exp()).view(1, 1, 1)
+        transition = transition + mask_transition
+        probs = (stag_score * transition).clamp_min(0)
+        probs_sum = probs.sum(dim=-1, keepdim=True).clamp_min(1e-12)
+        sampled = _sample_categorical_probs(probs / probs_sum, rng)
+        ids = torch.where(remaining, sampled, ids)
+
+    remaining = (ids == mask_token_id) & editable
+    if remaining.any():
+        curr_sigma = sigmas[-1].view(1, 1)
+        diffusion_sigma = curr_sigma if getattr(model.config, "diffusion_sigma_conditioning", False) else None
+        log_score = _model_logits(model, ids, diffusion_sigma=diffusion_sigma)
+        log_score = _apply_score_parameterization(log_score, curr_sigma, mask_token_id, score_parameterization)
+        if forbidden_token_ids:
+            log_score[..., forbidden_token_ids] = -float("inf")
+        log_score = log_score.scatter(-1, ids.unsqueeze(-1), torch.zeros_like(log_score[..., :1]))
+        score = log_score.exp()
+
+        stag_score = score.clone()
+        extra_const = (1 - curr_sigma.exp()) * stag_score.sum(dim=-1)
+        stag_score = stag_score * curr_sigma.exp().view(1, 1, 1)
+        stag_score[..., mask_token_id] += extra_const
+        transition = torch.zeros_like(stag_score)
+        transition.scatter_(-1, ids.unsqueeze(-1), curr_sigma.neg().exp().view(1, 1, 1).expand_as(ids.unsqueeze(-1)).to(stag_score.dtype))
+        mask_transition = (ids == mask_token_id).to(stag_score.dtype).unsqueeze(-1) * (1 - curr_sigma.neg().exp()).view(1, 1, 1)
+        probs = (stag_score * (transition + mask_transition))[..., :mask_token_id].clamp_min(0)
+        probs_sum = probs.sum(dim=-1, keepdim=True).clamp_min(1e-12)
+        sampled = _sample_categorical_probs(probs / probs_sum, rng)
+        ids = torch.where(remaining, sampled, ids)
+
+    return ids[0].tolist()
+
+
 @torch.inference_mode()
 def sample_masked_diffusion(
     model,
@@ -370,6 +482,10 @@ def sample_masked_diffusion(
     remask_strategy="none",
     cfg_scale=0.0,
     reveal_strategy="confidence",
+    sampler="iterative",
+    score_parameterization="raw",
+    mask_eps=1e-3,
+    mask_max_prob=0.999,
 ):
     """
     Fixed-length iterative denoising sampler.
@@ -390,8 +506,24 @@ def sample_masked_diffusion(
     assert cfg_scale >= 0
     assert remask_strategy in {"none", "low_confidence", "random"}
     assert reveal_strategy in {"confidence", "left_to_right"}
+    assert sampler in {"iterative", "sedd_analytic"}
+    assert score_parameterization in {"raw", "sigma_scaled"}
+    assert 0 < mask_eps < mask_max_prob < 1
     if remask_low_confidence and remask_strategy == "none":
         remask_strategy = "low_confidence"
+    if sampler == "sedd_analytic":
+        return _sample_sedd_analytic(
+            model,
+            mask_token_id=mask_token_id,
+            length=length,
+            prompt_tokens=prompt_tokens,
+            steps=steps,
+            seed=seed,
+            forbidden_token_ids=forbidden_token_ids,
+            score_parameterization=score_parameterization,
+            mask_eps=mask_eps,
+            mask_max_prob=mask_max_prob,
+        )
 
     gen_tokens = length - len(prompt_tokens)
     if block_size > 0 and gen_tokens > block_size:
@@ -418,6 +550,10 @@ def sample_masked_diffusion(
                 remask_strategy=remask_strategy,
                 cfg_scale=cfg_scale,
                 reveal_strategy=reveal_strategy,
+                sampler=sampler,
+                score_parameterization=score_parameterization,
+                mask_eps=mask_eps,
+                mask_max_prob=mask_max_prob,
             )
             remaining_tokens -= current_block
         return output
@@ -450,11 +586,11 @@ def sample_masked_diffusion(
             editable_count = editable.sum(dim=1, keepdim=True).clamp_min(1)
             mask_prob = remaining.sum(dim=1, keepdim=True).float() / editable_count.float()
             diffusion_sigma = -torch.log1p(-mask_prob.clamp(max=0.999))
-        logits = model(ids, diffusion_sigma=diffusion_sigma) if diffusion_sigma is not None else model(ids)
+        logits = _model_logits(model, ids, diffusion_sigma=diffusion_sigma)
         if cfg_scale > 0 and prompt_tokens:
             uncond_ids = ids.clone()
             uncond_ids[:, :len(prompt_tokens)] = mask_token_id
-            uncond_logits = model(uncond_ids, diffusion_sigma=diffusion_sigma) if diffusion_sigma is not None else model(uncond_ids)
+            uncond_logits = _model_logits(model, uncond_ids, diffusion_sigma=diffusion_sigma)
             logits = uncond_logits + (cfg_scale + 1) * (logits - uncond_logits)
         if forbidden_token_ids:
             logits[..., forbidden_token_ids] = -float("inf")

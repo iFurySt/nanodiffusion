@@ -45,6 +45,7 @@ SAMPLE_NO_REPEAT_NGRAM_SIZE="${SAMPLE_NO_REPEAT_NGRAM_SIZE:-3}"
 SAMPLE_BLOCK_SIZE="${SAMPLE_BLOCK_SIZE:-4}"
 SAMPLE_REMASK_LOW_CONFIDENCE="${SAMPLE_REMASK_LOW_CONFIDENCE:-0}"
 SAMPLE_REMASK_STRATEGY="${SAMPLE_REMASK_STRATEGY:-none}"
+SAMPLE_SAMPLER="${SAMPLE_SAMPLER:-iterative}"
 RESUME_FROM_STEP="${RESUME_FROM_STEP:--1}"
 COMPILE="${COMPILE:-0}"
 
@@ -99,6 +100,7 @@ if [ "$SAMPLE_REMASK_LOW_CONFIDENCE" = "1" ]; then
   eval_args+=(--remask-low-confidence)
 fi
 eval_args+=(--remask-strategy="$SAMPLE_REMASK_STRATEGY")
+eval_args+=(--sampler="$SAMPLE_SAMPLER")
 
 commit="$(git rev-parse HEAD 2>/dev/null || cat .sync/source_commit 2>/dev/null || echo unknown)"
 append_report "# NanoDiffusion A100 Speedrun"
@@ -127,6 +129,7 @@ append_report "- score_parameterization: \`$SCORE_PARAMETERIZATION\`"
 append_report "- diffusion_sigma_conditioning: \`$DIFFUSION_SIGMA_CONDITIONING\`"
 append_report "- sample_remask_low_confidence: \`$SAMPLE_REMASK_LOW_CONFIDENCE\`"
 append_report "- sample_remask_strategy: \`$SAMPLE_REMASK_STRATEGY\`"
+append_report "- sample_sampler: \`$SAMPLE_SAMPLER\`"
 append_report "- sample_block_size: \`$SAMPLE_BLOCK_SIZE\`"
 append_report "- total_batch_size: \`$TOTAL_BATCH_SIZE\`"
 append_report "- device_batch_size: \`$DEVICE_BATCH_SIZE\`"
@@ -197,6 +200,9 @@ for step in $(seq "$SAVE_EVERY" "$SAVE_EVERY" "$TRAIN_STEPS"); do
       --device-type=cuda \
       --max-tokens="$SAMPLE_MAX_TOKENS" \
       --seed="$SAMPLE_SEED" \
+      --score-parameterization="$SCORE_PARAMETERIZATION" \
+      --mask-eps="$MASK_EPS" \
+      --mask-max-prob="$MASK_MAX_PROB" \
       --output="$REPORT_FILE" \
       --append
   fi
