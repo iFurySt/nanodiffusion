@@ -155,6 +155,7 @@ Useful sweep overrides for the next base runs:
 
 ```bash
 MASK_MAX_PROB=0.7 bash runs/diffusion_speedrun_a100.sh
+MASK_EPS=0.7 MASK_PATTERN=suffix_span bash runs/diffusion_speedrun_a100.sh
 MASK_LOSS_REWEIGHT=0 bash runs/diffusion_speedrun_a100.sh
 MASK_PATTERN=suffix bash runs/diffusion_speedrun_a100.sh
 MASK_PATTERN=suffix_span SPAN_TOKENS=128 bash runs/diffusion_speedrun_a100.sh
@@ -166,7 +167,9 @@ probability up to `1.0` and per-token loss divided by the row mask probability.
 the suffix, which is the next candidate for aligning base training with
 fixed-prompt continuation. `MASK_PATTERN=suffix_span` narrows that objective to
 a bounded continuation span and masks the future suffix without adding it to the
-loss, which better matches fixed-length prompt sampling.
+loss, which better matches fixed-length prompt sampling. Raising `MASK_EPS`
+with `suffix_span` tests the fully masked continuation regime used at the start
+of sampling.
 
 Additional A100 sweeps on 2026-05-20 showed that simply extending this 10-shard
 baseline to 10k steps, or retraining with `MASK_LOSS_REWEIGHT=0`, did not clear

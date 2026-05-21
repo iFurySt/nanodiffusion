@@ -24,6 +24,7 @@ DEVICE_BATCH_SIZE="${DEVICE_BATCH_SIZE:-16}"
 TOTAL_BATCH_SIZE="${TOTAL_BATCH_SIZE:-524288}"
 TRAIN_STEPS="${TRAIN_STEPS:-5000}"
 WARMUP_STEPS="${WARMUP_STEPS:-100}"
+MASK_EPS="${MASK_EPS:-1e-3}"
 MASK_MAX_PROB="${MASK_MAX_PROB:-1.0}"
 MASK_LOSS_REWEIGHT="${MASK_LOSS_REWEIGHT:-1}"
 MASK_PATTERN="${MASK_PATTERN:-full}"
@@ -72,7 +73,8 @@ if [ "$MASK_LOSS_REWEIGHT" = "0" ]; then
   torch_args+=(--no-mask-loss-reweight)
 fi
 
-eval_args=(--mask-max-prob="$MASK_MAX_PROB")
+eval_args=(--mask-eps="$MASK_EPS")
+eval_args+=(--mask-max-prob="$MASK_MAX_PROB")
 eval_args+=(--mask-pattern="$MASK_PATTERN")
 eval_args+=(--prefix-min-frac="$PREFIX_MIN_FRAC")
 eval_args+=(--prefix-max-frac="$PREFIX_MAX_FRAC")
@@ -97,6 +99,7 @@ append_report "- depth: \`$DEPTH\`"
 append_report "- max_seq_len: \`$MAX_SEQ_LEN\`"
 append_report "- train_steps: \`$TRAIN_STEPS\`"
 append_report "- resume_from_step: \`$RESUME_FROM_STEP\`"
+append_report "- mask_eps: \`$MASK_EPS\`"
 append_report "- mask_max_prob: \`$MASK_MAX_PROB\`"
 append_report "- mask_loss_reweight: \`$MASK_LOSS_REWEIGHT\`"
 append_report "- mask_pattern: \`$MASK_PATTERN\`"
@@ -141,6 +144,7 @@ run_python -m torch.distributed.run --standalone --nproc_per_node="$NPROC_PER_NO
   --total-batch-size="$TOTAL_BATCH_SIZE" \
   --num-iterations="$TRAIN_STEPS" \
   --warmup-steps="$WARMUP_STEPS" \
+  --mask-eps="$MASK_EPS" \
   --mask-max-prob="$MASK_MAX_PROB" \
   --mask-pattern="$MASK_PATTERN" \
   --prefix-min-frac="$PREFIX_MIN_FRAC" \
