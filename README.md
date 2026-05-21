@@ -793,6 +793,20 @@ copies compatible transformer weights from a causal base checkpoint, copies the
 shared tokenizer rows for embeddings and `lm_head`, and leaves the extra
 diffusion `[MASK]` row initialized.
 
+A 1-GPU d20 seq-1024 AR-initialization smoke loaded
+`ar_d20_s1024_1k_20s_control` step 1000, copied 147 tensors, and trained 50
+score-entropy diffusion steps:
+
+```text
+model_tag: diag_d20_s1024_50_arinit_score_entropy_sigma_scalar_input
+validation_loss_curve: 17.282553 -> 6.574758 -> 5.601721
+final_eval_loss: 5.593843
+report: $NANODIFFUSION_BASE_DIR/report/diag_d20_s1024_50_arinit_score_entropy_sigma_scalar_input-20260522-073851.md
+```
+
+Samples still looped, but the load path and optimization smoke are valid enough
+for a full 1k 8xA100 AR-initialized pilot.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:

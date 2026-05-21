@@ -497,6 +497,17 @@ Known evidence:
   because the `ar_d20_s1024_1k_20s_control` run proved the same data/model can
   learn basic language modeling, while diffusion-from-scratch still fails the
   fixed-prompt sample gate.
+- A 1-GPU AR-initialization smoke diagnostic
+  `diag_d20_s1024_50_arinit_score_entropy_sigma_scalar_input` loaded
+  `ar_d20_s1024_1k_20s_control` step 1000, copied 147 tensors, and left only the
+  new `diffusion_sigma_proj.weight` initialized from scratch. It trained for 50
+  steps with `DIFFUSION_SIGMA_CONDITIONING=1`, `LOSS_OBJECTIVE=score_entropy`,
+  and `SCORE_PARAMETERIZATION=sigma_scaled`. The score-entropy validation loss
+  started high but adapted quickly (`17.282553 -> 6.574758 -> 5.601721`, final
+  eval `5.593843`). Samples still looped on "capital"/"fib", so this is only an
+  initialization smoke, but it validates the load path and justifies a full 1k
+  8xA100 AR-initialized pilot. Report:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diag_d20_s1024_50_arinit_score_entropy_sigma_scalar_input-20260522-073851.md`.
 
 ## Milestone 1: Reproducible Base Speedrun
 
