@@ -109,7 +109,8 @@ def make_masked_batch(
             replaced with [MASK] in the input but are not training targets.
         mask_all_eligible: replace every eligible position with [MASK] and
             train all eligible targets. This is a continuation objective knob
-            for avoiding clean suffix leakage.
+            for avoiding clean suffix leakage. It can also be a bool tensor of
+            shape (B, 1) to mix fully masked and randomly masked rows.
         mask_sampling: "uniform" samples each row independently; "antithetic"
             spreads row mask probabilities evenly across the batch.
 
@@ -142,7 +143,13 @@ def make_masked_batch(
         assert force_mask.shape == clean_ids.shape
         force_mask = force_mask.to(device=device, dtype=torch.bool)
 
-    if mask_all_eligible:
+    if isinstance(mask_all_eligible, torch.Tensor):
+        row_mask_all = mask_all_eligible.to(device=device, dtype=torch.bool)
+        assert row_mask_all.shape == (B, 1)
+        random_mask = (torch.rand((B, T), device=device, generator=generator) < mask_prob) & eligible_mask
+        mask = torch.where(row_mask_all, eligible_mask, random_mask)
+        mask_prob = torch.where(row_mask_all, torch.ones_like(mask_prob), mask_prob)
+    elif mask_all_eligible:
         mask = eligible_mask.clone()
         mask_prob = torch.ones((B, 1), device=device)
     else:
@@ -231,6 +238,17 @@ def masked_diffusion_loss(
             generator=generator,
         )
         mask_all_eligible = True
+    elif mask_pattern == "suffix_span_mixed":
+        assert eligible_mask is None, "suffix_span_mixed mask pattern cannot be combined with explicit eligible_mask"
+        effective_eligible_mask, force_mask = make_suffix_span_masks(
+            clean_ids,
+            span_tokens=span_tokens,
+            min_prefix_frac=min_prefix_frac,
+            max_prefix_frac=max_prefix_frac,
+            generator=generator,
+        )
+        B = clean_ids.size(0)
+        mask_all_eligible = torch.rand((B, 1), device=clean_ids.device, generator=generator) < 0.5
     else:
         raise ValueError(f"unknown mask_pattern: {mask_pattern}")
 

@@ -186,6 +186,7 @@ MASK_PATTERN=suffix bash runs/diffusion_speedrun_a100.sh
 MASK_PATTERN=suffix_span SPAN_TOKENS=128 bash runs/diffusion_speedrun_a100.sh
 MASK_PATTERN=suffix_all LOSS_NORMALIZATION=eligible bash runs/diffusion_speedrun_a100.sh
 MASK_PATTERN=suffix_span_all SPAN_TOKENS=16 LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 bash runs/diffusion_speedrun_a100.sh
+MASK_PATTERN=suffix_span_mixed SPAN_TOKENS=64 LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 bash runs/diffusion_speedrun_a100.sh
 MASK_SAMPLING=antithetic bash runs/diffusion_speedrun_a100.sh
 ```
 

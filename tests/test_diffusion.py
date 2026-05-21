@@ -217,6 +217,26 @@ def test_make_masked_batch_can_mask_all_eligible_positions():
     assert torch.equal(batch.mask_prob, torch.ones_like(batch.mask_prob))
 
 
+def test_make_masked_batch_can_mix_fully_masked_rows():
+    clean = torch.arange(12, dtype=torch.long).view(2, 6)
+    eligible = torch.zeros_like(clean, dtype=torch.bool)
+    eligible[:, 3:] = True
+    row_mask_all = torch.tensor([[True], [False]])
+    batch = make_masked_batch(
+        clean,
+        mask_token_id=99,
+        eps=0.9,
+        generator=torch.Generator(device=clean.device).manual_seed(123),
+        eligible_mask=eligible,
+        mask_all_eligible=row_mask_all,
+    )
+
+    assert torch.equal(batch.mask[0], eligible[0])
+    assert torch.equal(batch.mask_prob[0], torch.ones_like(batch.mask_prob[0]))
+    assert batch.mask[1, 3:].any()
+    assert batch.mask_prob[1] < 1.0
+
+
 def test_make_masked_batch_force_masks_inputs_without_targets():
     clean = torch.arange(12, dtype=torch.long).view(2, 6)
     eligible = torch.zeros_like(clean, dtype=torch.bool)
@@ -391,6 +411,29 @@ def test_diffusion_loss_can_train_fully_masked_suffix_span():
     assert loss.isfinite()
     assert metrics["mask_fraction"] == 3 / 8
     assert metrics["mask_prob"] == 1.0
+    assert metrics["eligible_fraction"] == 3 / 8
+
+
+def test_diffusion_loss_can_train_mixed_suffix_span():
+    model = build_tiny_bidirectional_model()
+    clean = torch.randint(0, 16, (4, 8), dtype=torch.long)
+    generator = torch.Generator(device=clean.device).manual_seed(123)
+
+    loss, metrics = masked_diffusion_loss(
+        model,
+        clean,
+        mask_token_id=16,
+        generator=generator,
+        mask_pattern="suffix_span_mixed",
+        min_prefix_frac=0.25,
+        max_prefix_frac=0.25,
+        span_tokens=3,
+        loss_normalization="eligible",
+    )
+    loss.backward()
+
+    assert loss.isfinite()
+    assert metrics["mask_fraction"] > 0
     assert metrics["eligible_fraction"] == 3 / 8
 
 
