@@ -190,6 +190,17 @@ Known evidence:
   eligible-normalized checkpoints did not clear the fixed-prompt gate. The
   suffix checkpoint became slightly more coherent, but factual and code prompts
   still failed.
+- A 50-shard seq-1024 suffix candidate
+  `diffusion_a100_d20_s1024_5k_suffix_50s` completed on 2026-05-21. It reached
+  a slightly better step-5000 validation loss than the 20-shard run
+  (`1.632275` vs `1.638211`) after 157.43 minutes, with final eval loss
+  `1.804405`, and wrote
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_5k_suffix_50s-20260521-140725.md`.
+  Fixed-prompt samples still looped and code prompts remained unusable, so this
+  is not the selected quality baseline.
+- Resuming the 50-shard seq-1024 suffix checkpoint toward 10k was stopped at
+  step 5500 after validation regressed to `1.951706`. More steps on this recipe
+  are not justified without another objective or sampler change.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -394,7 +405,6 @@ Concrete next run: stop spending A100 time on the same 10-shard data/seq-2048
 setup. The suffix objective and 20-shard data run improved validation loss but
 did not clear the sample gate, so the next useful Milestone 3 candidate should
 change the objective rather than only adding data, steps, or shorter sequences.
-The suffix/span objective variants have not cleared the sample gate. The next
-useful candidate from the Milestone 3 sweep is a 50-shard seq-1024 suffix run,
-because 10 and 20 shards were insufficient and the objective-only changes did
-not produce a selected baseline.
+The suffix/span objective variants and the 50-shard data expansion have not
+cleared the sample gate. More of the same recipe should be avoided; the next
+candidate needs a materially different sampler or training target.

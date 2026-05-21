@@ -298,6 +298,25 @@ Samples at step 1000 were still dominated by loops, so it was not resumed to
 5k. A separate `block_size=1` spot check on the best suffix and span checkpoints
 also failed the fixed-prompt gate.
 
+A 50-shard seq-1024 suffix run gave a small validation improvement but still
+failed the fixed-prompt gate:
+
+```text
+model_tag: diffusion_a100_d20_s1024_5k_suffix_50s
+data_shards: 50
+max_seq_len: 1024
+mask_pattern: suffix
+training_time: 157.43m
+minimum_validation_diffusion_loss: 1.632275
+final_eval_loss: 1.804405
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_5k_suffix_50s-20260521-140725.md
+```
+
+The step-5000 validation loss was slightly better than the 20-shard seq-1024
+suffix run (`1.632275` vs `1.638211`), but samples still looped and code prompts
+remained unusable. Resuming toward 10k was stopped at step 5500 after validation
+regressed to `1.951706`.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:
