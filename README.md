@@ -625,6 +625,25 @@ denoiser and passes the current noise level during both training and iterative
 sampling. This is still off by default so old causal and diffusion checkpoints
 load unchanged.
 
+The input-level sigma-conditioned pilot was also stable, but still failed the
+sample gate:
+
+```text
+model_tag: diffusion_a100_d20_s1024_1k_score_entropy_sigma_cond_full_20s
+loss_objective: score_entropy
+score_parameterization: sigma_scaled
+diffusion_sigma_conditioning: 1
+validation_loss_curve: 10.423655 -> 4.112162 -> 3.580559
+final_eval_loss: 3.630645
+training_time: 33.07m
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_score_entropy_sigma_cond_full_20s-20260522-041837.md
+```
+
+This slightly improved validation loss but not qualitative behavior: the France
+prompt drifted into percentage/GDP fragments, and the Fibonacci prompt remained
+non-code. The remaining gap is likely deeper denoiser conditioning or a true
+SEDD-style reverse sampler rather than another 1k loss-only sweep.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:

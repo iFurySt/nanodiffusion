@@ -376,6 +376,16 @@ Known evidence:
   `LOSS_OBJECTIVE=score_entropy`, `SCORE_PARAMETERIZATION=sigma_scaled`,
   `DIFFUSION_SIGMA_CONDITIONING=1`, `MASK_MAX_PROB=0.999`,
   `MASK_SAMPLING=antithetic`.
+- The 1k d20 seq-1024 pilot
+  `diffusion_a100_d20_s1024_1k_score_entropy_sigma_cond_full_20s` used that
+  sigma-conditioned recipe. It was stable and reached validation loss
+  `10.423655 -> 4.112162 -> 3.580559`, with final eval loss `3.630645`, after
+  33.07 minutes. Samples still failed: the France prompt drifted into
+  percentage/GDP fragments instead of Paris, and the Fibonacci prompt remained
+  non-code. This rules out input-level scalar sigma conditioning as a sufficient
+  fix; the next candidate should be deeper denoiser conditioning or a true
+  SEDD-style reverse sampler, not another 1k loss-only sweep. Report:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_score_entropy_sigma_cond_full_20s-20260522-041837.md`.
 
 ## Milestone 1: Reproducible Base Speedrun
 
