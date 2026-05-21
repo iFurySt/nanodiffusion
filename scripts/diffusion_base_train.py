@@ -90,6 +90,8 @@ def parse_args():
     parser.add_argument("--diffusion-sigma-conditioning", action="store_true")
     parser.add_argument("--diffusion-sigma-layer-conditioning", action="store_true")
     parser.add_argument("--diffusion-sigma-adaln-conditioning", action="store_true")
+    parser.add_argument("--diffusion-sigma-embedding", type=str, default="scalar", choices=["scalar", "sinusoidal"])
+    parser.add_argument("--diffusion-sigma-embedding-dim", type=int, default=256)
     parser.add_argument("--resume-from-step", type=int, default=-1)
     # Evaluation / output
     parser.add_argument("--eval-every", type=int, default=250)
@@ -115,6 +117,8 @@ def build_model_meta(args, vocab_size):
         diffusion_sigma_conditioning=args.diffusion_sigma_conditioning,
         diffusion_sigma_layer_conditioning=args.diffusion_sigma_layer_conditioning,
         diffusion_sigma_adaln_conditioning=args.diffusion_sigma_adaln_conditioning,
+        diffusion_sigma_embedding=args.diffusion_sigma_embedding,
+        diffusion_sigma_embedding_dim=args.diffusion_sigma_embedding_dim,
     )
     with torch.device("meta"):
         model = GPT(config)
@@ -404,6 +408,8 @@ def main():
             "Diffusion sigma conditioning": args.diffusion_sigma_conditioning,
             "Diffusion sigma layer conditioning": args.diffusion_sigma_layer_conditioning,
             "Diffusion sigma AdaLN conditioning": args.diffusion_sigma_adaln_conditioning,
+            "Diffusion sigma embedding": args.diffusion_sigma_embedding,
+            "Diffusion sigma embedding dim": args.diffusion_sigma_embedding_dim,
         },
         {
             "Minimum validation diffusion loss": min_val_loss,

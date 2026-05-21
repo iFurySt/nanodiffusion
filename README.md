@@ -193,6 +193,7 @@ LOSS_OBJECTIVE=score_entropy SCORE_PARAMETERIZATION=sigma_scaled MASK_MAX_PROB=0
 DIFFUSION_SIGMA_CONDITIONING=1 LOSS_OBJECTIVE=score_entropy SCORE_PARAMETERIZATION=sigma_scaled MASK_MAX_PROB=0.999 MASK_SAMPLING=antithetic bash runs/diffusion_speedrun_a100.sh
 DIFFUSION_SIGMA_LAYER_CONDITIONING=1 LOSS_OBJECTIVE=score_entropy SCORE_PARAMETERIZATION=sigma_scaled MASK_MAX_PROB=0.999 MASK_SAMPLING=antithetic bash runs/diffusion_speedrun_a100.sh
 DIFFUSION_SIGMA_ADALN_CONDITIONING=1 LOSS_OBJECTIVE=score_entropy SCORE_PARAMETERIZATION=sigma_scaled MASK_MAX_PROB=0.999 MASK_SAMPLING=antithetic bash runs/diffusion_speedrun_a100.sh
+DIFFUSION_SIGMA_ADALN_CONDITIONING=1 DIFFUSION_SIGMA_EMBEDDING=sinusoidal LOSS_OBJECTIVE=score_entropy SCORE_PARAMETERIZATION=sigma_scaled MASK_MAX_PROB=0.999 MASK_SAMPLING=antithetic bash runs/diffusion_speedrun_a100.sh
 ```
 
 The defaults keep the original simple LLaDA/MDLM-style objective: sampled mask
@@ -737,6 +738,12 @@ food/topic lists, or numeric stubs rather than executable code. This rules out
 scalar sigma-driven AdaLN as sufficient at this scale; the next useful
 parameterizer change should move closer to SEDD's high-dimensional noise-level
 embedding and conditioned output scaling.
+
+`DIFFUSION_SIGMA_EMBEDDING=sinusoidal` is now available for that next pilot. It
+replaces the scalar `log1p(sigma)` feature with a sinusoidal continuous-noise
+embedding followed by a small MLP before the existing input, per-layer, or AdaLN
+sigma projections. It is disabled by default and old checkpoints load as
+`diffusion_sigma_embedding=scalar`.
 
 ## Evaluate And Sample
 

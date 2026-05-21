@@ -444,6 +444,13 @@ Known evidence:
   fragments, food/topic lists, or numeric stubs rather than executable code.
   This rules out scalar sigma-driven AdaLN as sufficient at this scale. Report:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_score_entropy_sigma_adaln_full_20s-20260522-055842.md`.
+- `DIFFUSION_SIGMA_EMBEDDING=sinusoidal` is available for the next SEDD-style
+  parameterizer pilot. It replaces the scalar `log1p(sigma)` feature with a
+  high-dimensional sinusoidal continuous-noise embedding and MLP before the
+  existing input, per-layer, or AdaLN sigma projections. Use it first with
+  `DIFFUSION_SIGMA_ADALN_CONDITIONING=1`, `LOSS_OBJECTIVE=score_entropy`,
+  `SCORE_PARAMETERIZATION=sigma_scaled`, `MASK_MAX_PROB=0.999`, and
+  `MASK_SAMPLING=antithetic` for the next 1k A100 run.
 
 ## Milestone 1: Reproducible Base Speedrun
 

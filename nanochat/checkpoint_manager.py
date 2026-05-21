@@ -38,6 +38,12 @@ def _patch_missing_config_keys(model_config_kwargs):
     if "diffusion_sigma_adaln_conditioning" not in model_config_kwargs:
         model_config_kwargs["diffusion_sigma_adaln_conditioning"] = False
         log0(f"Patching missing diffusion_sigma_adaln_conditioning in model config to False")
+    if "diffusion_sigma_embedding" not in model_config_kwargs:
+        model_config_kwargs["diffusion_sigma_embedding"] = "scalar"
+        log0(f"Patching missing diffusion_sigma_embedding in model config to 'scalar'")
+    if "diffusion_sigma_embedding_dim" not in model_config_kwargs:
+        model_config_kwargs["diffusion_sigma_embedding_dim"] = 256
+        log0(f"Patching missing diffusion_sigma_embedding_dim in model config to 256")
 
 def _patch_missing_keys(model_data, model_config):
     """Add default values for new parameters that may be missing in old checkpoints."""

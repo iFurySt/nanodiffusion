@@ -14,6 +14,7 @@ Notable features:
 
 from functools import partial
 from dataclasses import dataclass
+import math
 
 import torch
 import torch.nn as nn
@@ -43,6 +44,8 @@ class GPTConfig:
     diffusion_sigma_conditioning: bool = False
     diffusion_sigma_layer_conditioning: bool = False
     diffusion_sigma_adaln_conditioning: bool = False
+    diffusion_sigma_embedding: str = "scalar"
+    diffusion_sigma_embedding_dim: int = 256
 
 
 def norm(x):
@@ -148,6 +151,37 @@ class MLP(nn.Module):
         return x
 
 
+def timestep_embedding(t, dim, max_period=10000):
+    """
+    Build sinusoidal embeddings for continuous diffusion noise levels.
+    Mirrors common diffusion timestep embeddings but accepts arbitrary floats.
+    """
+    half = dim // 2
+    freqs = torch.exp(
+        -math.log(max_period) * torch.arange(0, half, dtype=torch.float32, device=t.device) / max(half, 1)
+    )
+    args = t.float().view(-1, 1) * freqs.view(1, -1)
+    embedding = torch.cat([torch.cos(args), torch.sin(args)], dim=-1)
+    if dim % 2:
+        embedding = torch.cat([embedding, torch.zeros_like(embedding[:, :1])], dim=-1)
+    return embedding
+
+
+class TimestepEmbedder(nn.Module):
+    def __init__(self, frequency_embedding_size, hidden_size):
+        super().__init__()
+        self.frequency_embedding_size = frequency_embedding_size
+        self.mlp = nn.Sequential(
+            Linear(frequency_embedding_size, hidden_size, bias=False),
+            nn.SiLU(),
+            Linear(hidden_size, hidden_size, bias=False),
+        )
+
+    def forward(self, sigma):
+        emb = timestep_embedding(sigma.view(-1), self.frequency_embedding_size)
+        return self.mlp(emb)
+
+
 class Block(nn.Module):
     def __init__(self, config, layer_idx):
         super().__init__()
@@ -191,16 +225,26 @@ class GPT(nn.Module):
         padded_vocab_size = ((config.vocab_size + pad_vocab_size_to - 1) // pad_vocab_size_to) * pad_vocab_size_to
         if padded_vocab_size != config.vocab_size:
             print0(f"Padding vocab_size from {config.vocab_size} to {padded_vocab_size} for efficiency")
+        assert config.diffusion_sigma_embedding in {"scalar", "sinusoidal"}
         self.transformer = nn.ModuleDict({
             "wte": nn.Embedding(padded_vocab_size, config.n_embd),
             "h": nn.ModuleList([Block(config, layer_idx) for layer_idx in range(config.n_layer)]),
         })
-        self.diffusion_sigma_proj = Linear(1, config.n_embd, bias=False) if config.diffusion_sigma_conditioning else None
+        self.uses_diffusion_sigma = (
+            config.diffusion_sigma_conditioning
+            or config.diffusion_sigma_layer_conditioning
+            or config.diffusion_sigma_adaln_conditioning
+        )
+        self.diffusion_sigma_embedder = TimestepEmbedder(
+            config.diffusion_sigma_embedding_dim, config.n_embd
+        ) if self.uses_diffusion_sigma and config.diffusion_sigma_embedding == "sinusoidal" else None
+        sigma_feature_dim = config.n_embd if self.diffusion_sigma_embedder is not None else 1
+        self.diffusion_sigma_proj = Linear(sigma_feature_dim, config.n_embd, bias=False) if config.diffusion_sigma_conditioning else None
         self.diffusion_sigma_layer_projs = nn.ModuleList(
-            [Linear(1, config.n_embd, bias=False) for _ in range(config.n_layer)]
+            [Linear(sigma_feature_dim, config.n_embd, bias=False) for _ in range(config.n_layer)]
         ) if config.diffusion_sigma_layer_conditioning else None
         self.diffusion_sigma_adaln_projs = nn.ModuleList(
-            [Linear(1, 6 * config.n_embd, bias=False) for _ in range(config.n_layer)]
+            [Linear(sigma_feature_dim, 6 * config.n_embd, bias=False) for _ in range(config.n_layer)]
         ) if config.diffusion_sigma_adaln_conditioning else None
         self.lm_head = Linear(config.n_embd, padded_vocab_size, bias=False)
         # Per-layer learnable scalars (inspired by modded-nanogpt)
@@ -247,6 +291,9 @@ class GPT(nn.Module):
 
         # Embedding and unembedding
         torch.nn.init.normal_(self.transformer.wte.weight, mean=0.0, std=0.8)
+        if self.diffusion_sigma_embedder is not None:
+            torch.nn.init.normal_(self.diffusion_sigma_embedder.mlp[0].weight, mean=0.0, std=self.config.n_embd**-0.5)
+            torch.nn.init.normal_(self.diffusion_sigma_embedder.mlp[2].weight, mean=0.0, std=self.config.n_embd**-0.5)
         if self.diffusion_sigma_proj is not None:
             torch.nn.init.zeros_(self.diffusion_sigma_proj.weight)
         if self.diffusion_sigma_layer_projs is not None:
@@ -462,6 +509,8 @@ class GPT(nn.Module):
 
     def _sigma_conditioning_parameters(self):
         params = []
+        if self.diffusion_sigma_embedder is not None:
+            params.extend(self.diffusion_sigma_embedder.parameters())
         if self.diffusion_sigma_proj is not None:
             params.extend(self.diffusion_sigma_proj.parameters())
         if self.diffusion_sigma_layer_projs is not None:
@@ -489,10 +538,13 @@ class GPT(nn.Module):
         x = x.to(COMPUTE_DTYPE) # ensure activations are in compute dtype (no-op usually, but active for fp16 code path)
         x = norm(x)
         sigma_feature = None
-        if self.diffusion_sigma_proj is not None or self.diffusion_sigma_layer_projs is not None or self.diffusion_sigma_adaln_projs is not None:
+        if self.uses_diffusion_sigma:
             assert diffusion_sigma is not None, "diffusion_sigma is required when diffusion_sigma_conditioning=True"
             diffusion_sigma = diffusion_sigma.to(device=idx.device, dtype=torch.float32).view(B, 1)
-            sigma_feature = torch.log1p(diffusion_sigma).to(x.dtype).view(B, 1, 1)
+            if self.diffusion_sigma_embedder is not None:
+                sigma_feature = self.diffusion_sigma_embedder(diffusion_sigma).to(x.dtype).view(B, 1, -1)
+            else:
+                sigma_feature = torch.log1p(diffusion_sigma).to(x.dtype).view(B, 1, 1)
         if self.diffusion_sigma_proj is not None:
             x = x + self.diffusion_sigma_proj(sigma_feature).view(B, 1, -1)
 

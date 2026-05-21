@@ -38,6 +38,8 @@ SCORE_PARAMETERIZATION="${SCORE_PARAMETERIZATION:-raw}"
 DIFFUSION_SIGMA_CONDITIONING="${DIFFUSION_SIGMA_CONDITIONING:-0}"
 DIFFUSION_SIGMA_LAYER_CONDITIONING="${DIFFUSION_SIGMA_LAYER_CONDITIONING:-0}"
 DIFFUSION_SIGMA_ADALN_CONDITIONING="${DIFFUSION_SIGMA_ADALN_CONDITIONING:-0}"
+DIFFUSION_SIGMA_EMBEDDING="${DIFFUSION_SIGMA_EMBEDDING:-scalar}"
+DIFFUSION_SIGMA_EMBEDDING_DIM="${DIFFUSION_SIGMA_EMBEDDING_DIM:-256}"
 EVAL_EVERY="${EVAL_EVERY:-500}"
 EVAL_BATCHES="${EVAL_BATCHES:-20}"
 SAVE_EVERY="${SAVE_EVERY:-1000}"
@@ -137,6 +139,8 @@ append_report "- score_parameterization: \`$SCORE_PARAMETERIZATION\`"
 append_report "- diffusion_sigma_conditioning: \`$DIFFUSION_SIGMA_CONDITIONING\`"
 append_report "- diffusion_sigma_layer_conditioning: \`$DIFFUSION_SIGMA_LAYER_CONDITIONING\`"
 append_report "- diffusion_sigma_adaln_conditioning: \`$DIFFUSION_SIGMA_ADALN_CONDITIONING\`"
+append_report "- diffusion_sigma_embedding: \`$DIFFUSION_SIGMA_EMBEDDING\`"
+append_report "- diffusion_sigma_embedding_dim: \`$DIFFUSION_SIGMA_EMBEDDING_DIM\`"
 append_report "- sample_remask_low_confidence: \`$SAMPLE_REMASK_LOW_CONFIDENCE\`"
 append_report "- sample_remask_strategy: \`$SAMPLE_REMASK_STRATEGY\`"
 append_report "- sample_sampler: \`$SAMPLE_SAMPLER\`"
@@ -187,6 +191,8 @@ run_python -m torch.distributed.run --standalone --nproc_per_node="$NPROC_PER_NO
   --mask-sampling="$MASK_SAMPLING" \
   --loss-objective="$LOSS_OBJECTIVE" \
   --score-parameterization="$SCORE_PARAMETERIZATION" \
+  --diffusion-sigma-embedding="$DIFFUSION_SIGMA_EMBEDDING" \
+  --diffusion-sigma-embedding-dim="$DIFFUSION_SIGMA_EMBEDDING_DIM" \
   --eval-every="$EVAL_EVERY" \
   --eval-batches="$EVAL_BATCHES" \
   --save-every="$SAVE_EVERY" \
