@@ -169,6 +169,13 @@ Known evidence:
   only a bounded span contributes targets. Fixed-prompt samples still failed:
   `The capital of France is` looped around "capital", and `def fibonacci(n):`
   remained non-code. This is a rejected recipe, not the selected baseline.
+- A high-mask version of the span objective
+  `diffusion_a100_d20_s1024_5k_suffix_span_m070_20s` used `MASK_EPS=0.7` to
+  better match the all-masked start of sampling. It was stopped at step 1000
+  after validation remained worse than the default span run (`1.300002 ->
+  0.786628 -> 0.737556`) and step-1000 samples showed more severe fixed-prompt
+  degeneration. The sample report is
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_5k_suffix_span_m070_20s-step1000-samples-20260521.md`.
 
 ## Milestone 1: Reproducible Base Speedrun
 

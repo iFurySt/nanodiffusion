@@ -260,6 +260,22 @@ bounded span contributes targets. Samples still failed the quality gate:
 `The capital of France is` looped around "capital", and `def fibonacci(n):`
 remained non-code. This is a rejected recipe, not the selected quality baseline.
 
+A high-mask variant of the same span objective was stopped early:
+
+```text
+model_tag: diffusion_a100_d20_s1024_5k_suffix_span_m070_20s
+mask_pattern: suffix_span
+mask_eps: 0.7
+span_tokens: 128
+stopped_at: step 1000
+validation_loss: 1.300002 -> 0.786628 -> 0.737556
+sample_report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_5k_suffix_span_m070_20s-step1000-samples-20260521.md
+```
+
+This better matched the all-masked start of sampling, but it was worse on
+validation and produced more severe fixed-prompt degeneration at step 1000, so
+it was stopped instead of running to 5k.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:
