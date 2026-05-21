@@ -434,6 +434,16 @@ Known evidence:
   unchanged at initialization. Use it with `LOSS_OBJECTIVE=score_entropy`,
   `SCORE_PARAMETERIZATION=sigma_scaled`, `MASK_MAX_PROB=0.999`, and
   `MASK_SAMPLING=antithetic` for the next 1k A100 run.
+- The 1k d20 seq-1024 pilot
+  `diffusion_a100_d20_s1024_1k_score_entropy_sigma_adaln_full_20s` used that
+  AdaLN conditioning recipe. It was stable and reached validation loss
+  `10.423655 -> 4.079122 -> 3.612487`, with final eval loss `3.659920`, after
+  35.16 minutes. The fixed-prompt samples still failed the quality gate: the
+  France prompt produced "The capital of France is gold" and similar malformed
+  variants instead of Paris, and `def fibonacci(n):` generated repeated
+  fragments, food/topic lists, or numeric stubs rather than executable code.
+  This rules out scalar sigma-driven AdaLN as sufficient at this scale. Report:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_score_entropy_sigma_adaln_full_20s-20260522-055842.md`.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -643,8 +653,11 @@ masking, block-aligned training, CFG sampling, fixed reveal scheduling,
 mask-logit exclusion, antithetic mask sampling, exact fully masked continuation
 span training, mixed continuation-span training, corrected full-objective
 training, random remasking, direct score-entropy training, a d16 model-size
-pilot, and 50-shard data expansion have not cleared the sample gate. More of
-the same recipe should be avoided; the next candidate needs a broader change
-than another scalar sweep. The AR control makes this more specific: the next
-useful work should focus on a stronger discrete diffusion sampler/parameterizer,
-not more data/step/model-size sweeps inside the current masked-denoising family.
+pilot, 50-shard data expansion, SEDD analytic sampling, and scalar sigma
+conditioning through input, per-layer residual injection, and AdaLN have not
+cleared the sample gate. More of the same recipe should be avoided; the next
+candidate needs a broader change than another scalar sweep. The AR control makes
+this more specific: the next useful work should focus on a closer SEDD-style
+parameterizer, especially high-dimensional sinusoidal/noise-level embeddings and
+conditioned output scaling, rather than more data/step/model-size sweeps inside
+the current masked-denoising family.

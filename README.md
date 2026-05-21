@@ -717,6 +717,27 @@ The next conditioning pilot should use
 inside each block with sigma-derived shift, scale, and gate terms. The modulation
 is zero-initialized so the default block behavior is unchanged at initialization.
 
+The AdaLN sigma-conditioning pilot was stable but did not clear the quality
+gate:
+
+```text
+model_tag: diffusion_a100_d20_s1024_1k_score_entropy_sigma_adaln_full_20s
+loss_objective: score_entropy
+score_parameterization: sigma_scaled
+diffusion_sigma_adaln_conditioning: 1
+validation_loss_curve: 10.423655 -> 4.079122 -> 3.612487
+final_eval_loss: 3.659920
+training_time: 35.16m
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_score_entropy_sigma_adaln_full_20s-20260522-055842.md
+```
+
+The France prompt produced "The capital of France is gold" and similar malformed
+variants instead of Paris. The Fibonacci prompt generated repeated fragments,
+food/topic lists, or numeric stubs rather than executable code. This rules out
+scalar sigma-driven AdaLN as sufficient at this scale; the next useful
+parameterizer change should move closer to SEDD's high-dimensional noise-level
+embedding and conditioned output scaling.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:
