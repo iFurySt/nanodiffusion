@@ -325,6 +325,17 @@ Known evidence:
   is therefore the diffusion objective/sampler, not the inherited data path
   alone. Log:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/logs/ar_d20_s1024_1k_20s_control-20260522-021154.train.log`.
+- The sampler now exposes `--remask-strategy=random` in addition to the existing
+  confidence and low-confidence paths. Spot checks on
+  `diffusion_a100_d20_s1024_5k_suffix_20s` step 5000 and
+  `diffusion_a100_d20_s1024_1k_full_antithetic_20s` step 1000 showed that
+  random remasking can sometimes move factual prompts toward Paris-like
+  continuations, but it also introduces more noisy fragments and does not fix
+  the code prompt. It is useful as a comparison recipe, not a selected default.
+  Reports:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_5k_suffix_20s-random-remask-samples-20260522.md`
+  and
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_full_antithetic_20s-random-remask-samples-20260522.md`.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -533,9 +544,9 @@ The suffix/span objective variants, fully masked suffix training, capped
 masking, block-aligned training, CFG sampling, fixed reveal scheduling,
 mask-logit exclusion, antithetic mask sampling, exact fully masked continuation
 span training, mixed continuation-span training, corrected full-objective
-training, a d16 model-size pilot, and 50-shard data expansion have not cleared
-the sample gate. More of the same recipe should be avoided; the next candidate
-needs a broader change than another scalar sweep. The AR control makes this
-more specific: the next useful work should focus on a stronger discrete
-diffusion formulation or sampler rather than more data/step/model-size sweeps
-inside the current masked-denoising family.
+training, random remasking, a d16 model-size pilot, and 50-shard data expansion
+have not cleared the sample gate. More of the same recipe should be avoided;
+the next candidate needs a broader change than another scalar sweep. The AR
+control makes this more specific: the next useful work should focus on a
+stronger discrete diffusion formulation or sampler rather than more
+data/step/model-size sweeps inside the current masked-denoising family.

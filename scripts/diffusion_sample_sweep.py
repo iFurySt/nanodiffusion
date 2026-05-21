@@ -27,7 +27,7 @@ SAMPLE_RECIPES = [
     {"name": "temp0.7_top50", "temperature": 0.7, "top_k": 50, "repeat_penalty": 0.0, "no_repeat_ngram_size": 0, "block_size": 0, "steps_scale": 1.0, "remask_low_confidence": False},
     {"name": "temp0.8_top50_repeat0.5", "temperature": 0.8, "top_k": 50, "repeat_penalty": 0.5, "no_repeat_ngram_size": 0, "block_size": 0, "steps_scale": 1.0, "remask_low_confidence": False},
     {"name": "temp0.8_top50_no_repeat3", "temperature": 0.8, "top_k": 50, "repeat_penalty": 0.0, "no_repeat_ngram_size": 3, "block_size": 0, "steps_scale": 1.0, "remask_low_confidence": False},
-    {"name": "remask_no_repeat3", "temperature": 0.8, "top_k": 50, "repeat_penalty": 0.0, "no_repeat_ngram_size": 3, "block_size": 0, "steps_scale": 1.0, "remask_low_confidence": True},
+    {"name": "remask_no_repeat3", "temperature": 0.8, "top_k": 50, "repeat_penalty": 0.0, "no_repeat_ngram_size": 3, "block_size": 0, "steps_scale": 1.0, "remask_low_confidence": False, "remask_strategy": "low_confidence"},
     {"name": "random_remask_no_repeat3", "temperature": 0.8, "top_k": 50, "repeat_penalty": 0.0, "no_repeat_ngram_size": 3, "block_size": 0, "steps_scale": 1.0, "remask_low_confidence": False, "remask_strategy": "random"},
     {"name": "block4_no_repeat3", "temperature": 0.8, "top_k": 50, "repeat_penalty": 0.0, "no_repeat_ngram_size": 3, "block_size": 4, "steps_scale": 1.0, "remask_low_confidence": False, "cfg_scale": 0.0},
     {"name": "block4_left_to_right_no_repeat3", "temperature": 0.8, "top_k": 50, "repeat_penalty": 0.0, "no_repeat_ngram_size": 3, "block_size": 4, "steps_scale": 1.0, "remask_low_confidence": False, "cfg_scale": 0.0, "reveal_strategy": "left_to_right"},

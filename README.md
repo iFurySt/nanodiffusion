@@ -552,6 +552,24 @@ much more language-like fixed-prompt continuations than the diffusion pilots
 after the same 1k-step budget. This points the next work at the diffusion
 objective/sampler rather than the shared data/tokenizer path alone.
 
+Random remasking is available as a sampler comparison recipe:
+
+```bash
+python -m scripts.diffusion_base_eval \
+  --model-tag=diffusion_a100_d20_s1024_5k_suffix_20s \
+  --step=5000 \
+  --eval=sample \
+  --prompt="The capital of France is" \
+  --temperature=0.8 \
+  --top-k=50 \
+  --no-repeat-ngram-size=3 \
+  --remask-strategy=random
+```
+
+Spot checks on the suffix and corrected full checkpoints did not clear the
+sample gate. Random remasking sometimes nudges factual prompts toward
+Paris-like continuations, but it adds noise and does not fix code prompts.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:
