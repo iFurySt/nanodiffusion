@@ -194,6 +194,10 @@ Known evidence:
   compares normal prompt conditioning against an unconditional copy where prompt
   tokens are masked. This mirrors a useful LLaDA sampling knob and can be tested
   on existing checkpoints without more base training.
+- CFG spot checks on the seq-1024 suffix checkpoints did not clear the sample
+  gate. The 20-shard suffix checkpoint with `block_size=4` and `cfg_scale=0`
+  occasionally produced a more coherent France/Paris sample, but code prompts
+  still failed; `cfg_scale=1.5` and `3.0` usually made samples less stable.
 - A 50-shard seq-1024 suffix candidate
   `diffusion_a100_d20_s1024_5k_suffix_50s` completed on 2026-05-21. It reached
   a slightly better step-5000 validation loss than the 20-shard run
@@ -205,6 +209,13 @@ Known evidence:
 - Resuming the 50-shard seq-1024 suffix checkpoint toward 10k was stopped at
   step 5500 after validation regressed to `1.951706`. More steps on this recipe
   are not justified without another objective or sampler change.
+- A block-aligned training target
+  `diffusion_a100_d20_s1024_5k_block4_20s` used `SPAN_TOKENS=4`,
+  `MASK_EPS=0.999`, `MASK_LOSS_REWEIGHT=0`, and
+  `LOSS_NORMALIZATION=eligible` so training matched `block_size=4` sampling
+  more directly. It was run to step 1000 (`10.401340 -> 7.085275 ->
+  6.544755`, final eval `6.592731`) but samples were worse, so it was not
+  continued.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -411,6 +422,6 @@ did not clear the sample gate, so the next useful Milestone 3 candidate should
 change the objective rather than only adding data, steps, or shorter sequences.
 The suffix/span objective variants and the 50-shard data expansion have not
 cleared the sample gate. More of the same recipe should be avoided; the next
-candidate needs a materially different sampler or training target. Test
-classifier-free guidance on the existing best checkpoints before launching
-another long base run.
+candidate needs a materially different sampler or training target. The
+remaining Milestone 3 objective knob is capped masking, so run the seq-1024
+suffix objective with `MASK_MAX_PROB=0.7` before considering broader changes.

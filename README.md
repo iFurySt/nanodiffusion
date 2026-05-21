@@ -317,6 +317,15 @@ suffix run (`1.632275` vs `1.638211`), but samples still looped and code prompts
 remained unusable. Resuming toward 10k was stopped at step 5500 after validation
 regressed to `1.951706`.
 
+Two sampler/objective alignment checks were rejected after short runs:
+
+- `--cfg-scale` adds classifier-free guidance, but spot checks on the best
+  suffix checkpoints did not improve the fixed prompts; larger guidance often
+  made samples less stable.
+- `diffusion_a100_d20_s1024_5k_block4_20s` trained 4-token fully masked blocks
+  to match `block_size=4` sampling. It was stopped at step 1000
+  (`10.401340 -> 7.085275 -> 6.544755`) because samples were worse.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:
