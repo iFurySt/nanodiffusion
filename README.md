@@ -188,6 +188,7 @@ MASK_PATTERN=suffix_all LOSS_NORMALIZATION=eligible bash runs/diffusion_speedrun
 MASK_PATTERN=suffix_span_all SPAN_TOKENS=16 LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 bash runs/diffusion_speedrun_a100.sh
 MASK_PATTERN=suffix_span_mixed SPAN_TOKENS=64 LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 bash runs/diffusion_speedrun_a100.sh
 MASK_SAMPLING=antithetic bash runs/diffusion_speedrun_a100.sh
+LOSS_OBJECTIVE=score_entropy MASK_MAX_PROB=0.999 MASK_SAMPLING=antithetic bash runs/diffusion_speedrun_a100.sh
 ```
 
 The defaults keep the original simple LLaDA/MDLM-style objective: sampled mask

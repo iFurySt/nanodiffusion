@@ -187,6 +187,7 @@ def masked_diffusion_loss(
     span_tokens=128,
     loss_normalization="all",
     mask_sampling="uniform",
+    loss_objective="cross_entropy",
 ):
     """
     Compute the continuous-time masked diffusion objective.
@@ -198,6 +199,7 @@ def masked_diffusion_loss(
     """
     assert loss_normalization in {"all", "eligible"}
     assert mask_sampling in {"uniform", "antithetic"}
+    assert loss_objective in {"cross_entropy", "score_entropy"}
     force_mask = None
     mask_all_eligible = False
     if mask_pattern == "full":
@@ -264,15 +266,33 @@ def masked_diffusion_loss(
         mask_sampling=mask_sampling,
     )
     logits = model(batch.input_ids)
-    logits[..., mask_token_id] = -float("inf")
-    vocab_size = logits.size(-1)
-    per_token = F.cross_entropy(
-        logits.view(-1, vocab_size),
-        batch.targets.view(-1),
-        ignore_index=-1,
-        reduction="none",
-    ).view_as(clean_ids)
-    weighted = per_token / batch.mask_prob if loss_reweight else per_token
+    if loss_objective == "cross_entropy":
+        logits[..., mask_token_id] = -float("inf")
+        vocab_size = logits.size(-1)
+        per_token = F.cross_entropy(
+            logits.view(-1, vocab_size),
+            batch.targets.view(-1),
+            ignore_index=-1,
+            reduction="none",
+        ).view_as(clean_ids)
+        weighted = per_token / batch.mask_prob if loss_reweight else per_token
+    else:
+        if mask_all_eligible is True or isinstance(mask_all_eligible, torch.Tensor):
+            raise ValueError("score_entropy objective does not support fully masked eligible rows")
+        mask_prob = batch.mask_prob.clamp(max=1 - 1e-5)
+        sigma = -torch.log1p(-mask_prob)
+        esigm1 = torch.expm1(sigma).clamp_min(1e-8)
+        ratio = 1 / esigm1
+        # The model output is interpreted as log score ratios. For absorbing
+        # diffusion, only non-mask vocabulary states contribute to the positive
+        # term; the absorbing [MASK] state is the current corrupted state.
+        pos_term = logits[..., :mask_token_id].exp().sum(dim=-1)
+        safe_targets = batch.targets.clamp_min(0)
+        clean_log_score = logits.gather(-1, safe_targets.unsqueeze(-1)).squeeze(-1)
+        per_token = pos_term - ratio * clean_log_score + ratio * (ratio.log() - 1)
+        per_token = per_token.masked_fill(~batch.mask, 0.0)
+        dsigma = (max_mask_prob - eps) / (1 - mask_prob)
+        weighted = dsigma * per_token
     if loss_normalization == "eligible":
         if effective_eligible_mask is None:
             denominator = torch.tensor(clean_ids.numel(), device=clean_ids.device, dtype=weighted.dtype)

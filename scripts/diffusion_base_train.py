@@ -85,6 +85,7 @@ def parse_args():
     parser.add_argument("--span-tokens", type=int, default=128)
     parser.add_argument("--loss-normalization", type=str, default="all", choices=["all", "eligible"])
     parser.add_argument("--mask-sampling", type=str, default="uniform", choices=["uniform", "antithetic"])
+    parser.add_argument("--loss-objective", type=str, default="cross_entropy", choices=["cross_entropy", "score_entropy"])
     parser.add_argument("--resume-from-step", type=int, default=-1)
     # Evaluation / output
     parser.add_argument("--eval-every", type=int, default=250)
@@ -140,6 +141,7 @@ def evaluate_diffusion_loss(model, tokenizer, device, args, mask_token_id, ddp_w
             span_tokens=args.span_tokens,
             loss_normalization=args.loss_normalization,
             mask_sampling=args.mask_sampling,
+            loss_objective=args.loss_objective,
         )
         total_loss += loss
         total_batches += 1
@@ -329,6 +331,7 @@ def main():
                 span_tokens=args.span_tokens,
                 loss_normalization=args.loss_normalization,
                 mask_sampling=args.mask_sampling,
+                loss_objective=args.loss_objective,
             )
             train_loss = loss.detach()
             (loss / grad_accum_steps).backward()
@@ -387,6 +390,7 @@ def main():
             "Span tokens": args.span_tokens,
             "Loss normalization": args.loss_normalization,
             "Mask sampling": args.mask_sampling,
+            "Loss objective": args.loss_objective,
         },
         {
             "Minimum validation diffusion loss": min_val_loss,

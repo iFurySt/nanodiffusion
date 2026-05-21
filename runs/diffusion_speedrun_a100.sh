@@ -33,6 +33,7 @@ PREFIX_MAX_FRAC="${PREFIX_MAX_FRAC:-0.75}"
 SPAN_TOKENS="${SPAN_TOKENS:-128}"
 LOSS_NORMALIZATION="${LOSS_NORMALIZATION:-all}"
 MASK_SAMPLING="${MASK_SAMPLING:-uniform}"
+LOSS_OBJECTIVE="${LOSS_OBJECTIVE:-cross_entropy}"
 EVAL_EVERY="${EVAL_EVERY:-500}"
 EVAL_BATCHES="${EVAL_BATCHES:-20}"
 SAVE_EVERY="${SAVE_EVERY:-1000}"
@@ -84,6 +85,7 @@ eval_args+=(--prefix-max-frac="$PREFIX_MAX_FRAC")
 eval_args+=(--span-tokens="$SPAN_TOKENS")
 eval_args+=(--loss-normalization="$LOSS_NORMALIZATION")
 eval_args+=(--mask-sampling="$MASK_SAMPLING")
+eval_args+=(--loss-objective="$LOSS_OBJECTIVE")
 if [ "$MASK_LOSS_REWEIGHT" = "0" ]; then
   eval_args+=(--no-mask-loss-reweight)
 fi
@@ -114,6 +116,7 @@ append_report "- prefix_max_frac: \`$PREFIX_MAX_FRAC\`"
 append_report "- span_tokens: \`$SPAN_TOKENS\`"
 append_report "- loss_normalization: \`$LOSS_NORMALIZATION\`"
 append_report "- mask_sampling: \`$MASK_SAMPLING\`"
+append_report "- loss_objective: \`$LOSS_OBJECTIVE\`"
 append_report "- sample_remask_low_confidence: \`$SAMPLE_REMASK_LOW_CONFIDENCE\`"
 append_report "- sample_remask_strategy: \`$SAMPLE_REMASK_STRATEGY\`"
 append_report "- sample_block_size: \`$SAMPLE_BLOCK_SIZE\`"
@@ -161,6 +164,7 @@ run_python -m torch.distributed.run --standalone --nproc_per_node="$NPROC_PER_NO
   --span-tokens="$SPAN_TOKENS" \
   --loss-normalization="$LOSS_NORMALIZATION" \
   --mask-sampling="$MASK_SAMPLING" \
+  --loss-objective="$LOSS_OBJECTIVE" \
   --eval-every="$EVAL_EVERY" \
   --eval-batches="$EVAL_BATCHES" \
   --save-every="$SAVE_EVERY" \
