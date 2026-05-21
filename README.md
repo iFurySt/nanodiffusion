@@ -160,6 +160,7 @@ LOSS_NORMALIZATION=eligible MASK_PATTERN=suffix_span bash runs/diffusion_speedru
 MASK_LOSS_REWEIGHT=0 bash runs/diffusion_speedrun_a100.sh
 MASK_PATTERN=suffix bash runs/diffusion_speedrun_a100.sh
 MASK_PATTERN=suffix_span SPAN_TOKENS=128 bash runs/diffusion_speedrun_a100.sh
+MASK_PATTERN=suffix_all LOSS_NORMALIZATION=eligible bash runs/diffusion_speedrun_a100.sh
 ```
 
 The defaults keep the original simple LLaDA/MDLM-style objective: sampled mask
@@ -172,6 +173,9 @@ loss, which better matches fixed-length prompt sampling. Raising `MASK_EPS`
 with `suffix_span` tests the fully masked continuation regime used at the start
 of sampling. `LOSS_NORMALIZATION=eligible` keeps prompt-fixed objectives from
 shrinking the gradient just because only a suffix or bounded span is trainable.
+`MASK_PATTERN=suffix_all` masks the entire random suffix and trains all suffix
+targets from the visible prefix only; it removes clean-suffix leakage but is a
+much harder continuation objective.
 
 Additional A100 sweeps on 2026-05-20 showed that simply extending this 10-shard
 baseline to 10k steps, or retraining with `MASK_LOSS_REWEIGHT=0`, did not clear
@@ -359,6 +363,26 @@ The fixed schedule sometimes made prose more locally continuous than
 highest-confidence reveal, but it still failed the fixed-prompt gate: factual
 prompts drifted or repeated, and `def fibonacci(n):` did not produce usable
 code. It is kept as an explainable sampling option, not as the selected default.
+
+A fully masked suffix objective was added to test a broader continuation
+training change:
+
+```text
+model_tag: diffusion_a100_d20_s1024_1k_suffix_all_20s
+data_shards: 20
+max_seq_len: 1024
+mask_pattern: suffix_all
+loss_normalization: eligible
+trained_to: step 1000
+training_time: 32.26m
+final_eval_loss: 7.378942
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_suffix_all_20s-20260521-210950.md
+```
+
+This removed future clean-suffix context during training, but the 1k pilot was
+clearly worse than the rejected suffix/span candidates. Fixed-prompt samples
+collapsed into France/French/Paris loops and character-level code degeneration,
+so it should not be continued to 5k without another change.
 
 ## Evaluate And Sample
 

@@ -236,6 +236,15 @@ Known evidence:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_5k_suffix_50s-left-to-right-samples-20260521-210014.md`,
   and
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_5k_suffix_maxp070_20s-left-to-right-samples-20260521-210145.md`.
+- A fully masked suffix objective `MASK_PATTERN=suffix_all` was added to test a
+  broader continuation target: random prefix visible, whole suffix masked, and
+  all suffix tokens trained with `LOSS_NORMALIZATION=eligible`. The 20-shard
+  seq-1024 pilot `diffusion_a100_d20_s1024_1k_suffix_all_20s` ran to step 1000
+  in 32.26 minutes. Validation was much worse than the rejected suffix/span
+  candidates (`7.367639`, final eval `7.378942`), and samples collapsed into
+  France/French/Paris loops plus character-level `def fibonacci(n):`
+  degeneration. Report:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_suffix_all_20s-20260521-210950.md`.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -440,7 +449,8 @@ Concrete next run: stop spending A100 time on the same 10-shard data/seq-2048
 setup. The suffix objective and 20-shard data run improved validation loss but
 did not clear the sample gate, so the next useful Milestone 3 candidate should
 change the objective rather than only adding data, steps, or shorter sequences.
-The suffix/span objective variants, capped masking, block-aligned training, CFG
-sampling, fixed reveal scheduling, and 50-shard data expansion have not cleared
-the sample gate. More of the same recipe should be avoided; the next candidate
-needs a broader change than another scalar sweep.
+The suffix/span objective variants, fully masked suffix training, capped
+masking, block-aligned training, CFG sampling, fixed reveal scheduling, and
+50-shard data expansion have not cleared the sample gate. More of the same
+recipe should be avoided; the next candidate needs a broader change than
+another scalar sweep.
