@@ -12,6 +12,7 @@ Training corrupts clean token sequences by replacing a random fraction with
 """
 
 from dataclasses import dataclass
+import math
 
 import torch
 import torch.nn.functional as F
@@ -188,6 +189,7 @@ def masked_diffusion_loss(
     loss_normalization="all",
     mask_sampling="uniform",
     loss_objective="cross_entropy",
+    score_parameterization="raw",
 ):
     """
     Compute the continuous-time masked diffusion objective.
@@ -200,6 +202,7 @@ def masked_diffusion_loss(
     assert loss_normalization in {"all", "eligible"}
     assert mask_sampling in {"uniform", "antithetic"}
     assert loss_objective in {"cross_entropy", "score_entropy"}
+    assert score_parameterization in {"raw", "sigma_scaled"}
     force_mask = None
     mask_all_eligible = False
     if mask_pattern == "full":
@@ -282,6 +285,13 @@ def masked_diffusion_loss(
         mask_prob = batch.mask_prob.clamp(max=1 - 1e-5)
         sigma = -torch.log1p(-mask_prob)
         esigm1 = torch.expm1(sigma).clamp_min(1e-8)
+        if score_parameterization == "sigma_scaled":
+            esigm1_log = torch.where(
+                sigma < 0.5,
+                torch.expm1(sigma),
+                sigma.exp() - 1,
+            ).clamp_min(1e-8).log()
+            logits = logits - esigm1_log[..., None] - math.log(mask_token_id)
         ratio = 1 / esigm1
         # The model output is interpreted as log score ratios. For absorbing
         # diffusion, only non-mask vocabulary states contribute to the positive

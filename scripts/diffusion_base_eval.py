@@ -47,6 +47,7 @@ def parse_args():
     parser.add_argument("--loss-normalization", type=str, default="all", choices=["all", "eligible"])
     parser.add_argument("--mask-sampling", type=str, default="uniform", choices=["uniform", "antithetic"])
     parser.add_argument("--loss-objective", type=str, default="cross_entropy", choices=["cross_entropy", "score_entropy"])
+    parser.add_argument("--score-parameterization", type=str, default="raw", choices=["raw", "sigma_scaled"])
     parser.add_argument("--prompt", type=str, default="The capital of France is")
     parser.add_argument("--max-tokens", type=int, default=32)
     parser.add_argument("--steps", type=int, default=None)
@@ -90,6 +91,7 @@ def evaluate_loss(model, tokenizer, device, args, mask_token_id, ddp_world_size)
             loss_normalization=args.loss_normalization,
             mask_sampling=args.mask_sampling,
             loss_objective=args.loss_objective,
+            score_parameterization=args.score_parameterization,
         )
         total_loss += loss
         total_batches += 1

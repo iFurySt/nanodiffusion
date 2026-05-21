@@ -189,6 +189,7 @@ MASK_PATTERN=suffix_span_all SPAN_TOKENS=16 LOSS_NORMALIZATION=eligible MASK_LOS
 MASK_PATTERN=suffix_span_mixed SPAN_TOKENS=64 LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 bash runs/diffusion_speedrun_a100.sh
 MASK_SAMPLING=antithetic bash runs/diffusion_speedrun_a100.sh
 LOSS_OBJECTIVE=score_entropy MASK_MAX_PROB=0.999 MASK_SAMPLING=antithetic bash runs/diffusion_speedrun_a100.sh
+LOSS_OBJECTIVE=score_entropy SCORE_PARAMETERIZATION=sigma_scaled MASK_MAX_PROB=0.999 MASK_SAMPLING=antithetic bash runs/diffusion_speedrun_a100.sh
 ```
 
 The defaults keep the original simple LLaDA/MDLM-style objective: sampled mask
@@ -576,6 +577,10 @@ A SEDD-inspired absorbing score-entropy objective is available:
 ```bash
 LOSS_OBJECTIVE=score_entropy MASK_MAX_PROB=0.999 MASK_SAMPLING=antithetic \
   bash runs/diffusion_speedrun_a100.sh
+
+LOSS_OBJECTIVE=score_entropy SCORE_PARAMETERIZATION=sigma_scaled \
+  MASK_MAX_PROB=0.999 MASK_SAMPLING=antithetic \
+  bash runs/diffusion_speedrun_a100.sh
 ```
 
 A 1k d20 seq-1024 pilot ran stably but did not clear the sample gate:
@@ -591,7 +596,9 @@ report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_score_entropy
 
 Treat this as infrastructure for stronger discrete-diffusion experiments, not as
 a selected baseline. The direct score-entropy objective still needs a matching
-sampler or parameterization change.
+sampler or a better parameterization. `SCORE_PARAMETERIZATION=sigma_scaled`
+adds the SEDD-style `sigma` scale correction to the loss path for the next pilot
+while preserving `raw` as the default.
 
 ## Evaluate And Sample
 

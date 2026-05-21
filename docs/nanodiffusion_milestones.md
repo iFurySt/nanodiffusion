@@ -351,6 +351,12 @@ Known evidence:
   infrastructure but not a selected baseline without a matching sampler or
   parameterization change. Report:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_score_entropy_full_20s-20260522-024848.md`.
+- The score-entropy path now has an explicit
+  `--score-parameterization=sigma_scaled` option for a closer SEDD-style loss
+  parameterization. It subtracts the absorbing-noise scale
+  `log(expm1(sigma))` and the non-mask vocabulary prior from score logits
+  before the score-entropy terms, while leaving `raw` as the default. This is
+  the next 1k A100 pilot candidate before considering longer training.
 
 ## Milestone 1: Reproducible Base Speedrun
 
