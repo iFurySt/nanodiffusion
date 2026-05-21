@@ -778,6 +778,21 @@ The next sinusoidal-conditioning change should be debugged at small scale first,
 or use a more conservative injection path such as input-only sinusoidal
 conditioning before another full 8xA100 run.
 
+Small 1-GPU d8 seq-256 diagnostics confirmed that sinusoidal conditioning is
+trainable but worse than scalar conditioning at the same 200-step budget:
+
+```text
+scalar_input_validation:      10.392314 -> 7.015034 -> 6.422985
+sinusoidal_input_validation:  10.401109 -> 7.856457 -> 7.816564
+sinusoidal_adaln_validation:  10.339487 -> 7.586989 -> 7.585907
+```
+
+The next broader candidate is AR-initialized diffusion training. Base diffusion
+training accepts `--init-from-base-model-tag` and `--init-from-base-step`; it
+copies compatible transformer weights from a causal base checkpoint, copies the
+shared tokenizer rows for embeddings and `lm_head`, and leaves the extra
+diffusion `[MASK]` row initialized.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:

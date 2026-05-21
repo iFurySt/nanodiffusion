@@ -40,6 +40,8 @@ DIFFUSION_SIGMA_LAYER_CONDITIONING="${DIFFUSION_SIGMA_LAYER_CONDITIONING:-0}"
 DIFFUSION_SIGMA_ADALN_CONDITIONING="${DIFFUSION_SIGMA_ADALN_CONDITIONING:-0}"
 DIFFUSION_SIGMA_EMBEDDING="${DIFFUSION_SIGMA_EMBEDDING:-scalar}"
 DIFFUSION_SIGMA_EMBEDDING_DIM="${DIFFUSION_SIGMA_EMBEDDING_DIM:-256}"
+INIT_FROM_BASE_MODEL_TAG="${INIT_FROM_BASE_MODEL_TAG:-}"
+INIT_FROM_BASE_STEP="${INIT_FROM_BASE_STEP:--1}"
 EVAL_EVERY="${EVAL_EVERY:-500}"
 EVAL_BATCHES="${EVAL_BATCHES:-20}"
 SAVE_EVERY="${SAVE_EVERY:-1000}"
@@ -92,6 +94,10 @@ fi
 if [ "$DIFFUSION_SIGMA_ADALN_CONDITIONING" = "1" ]; then
   torch_args+=(--diffusion-sigma-adaln-conditioning)
 fi
+if [ -n "$INIT_FROM_BASE_MODEL_TAG" ]; then
+  torch_args+=(--init-from-base-model-tag="$INIT_FROM_BASE_MODEL_TAG")
+  torch_args+=(--init-from-base-step="$INIT_FROM_BASE_STEP")
+fi
 
 eval_args=(--mask-eps="$MASK_EPS")
 eval_args+=(--mask-max-prob="$MASK_MAX_PROB")
@@ -141,6 +147,8 @@ append_report "- diffusion_sigma_layer_conditioning: \`$DIFFUSION_SIGMA_LAYER_CO
 append_report "- diffusion_sigma_adaln_conditioning: \`$DIFFUSION_SIGMA_ADALN_CONDITIONING\`"
 append_report "- diffusion_sigma_embedding: \`$DIFFUSION_SIGMA_EMBEDDING\`"
 append_report "- diffusion_sigma_embedding_dim: \`$DIFFUSION_SIGMA_EMBEDDING_DIM\`"
+append_report "- init_from_base_model_tag: \`$INIT_FROM_BASE_MODEL_TAG\`"
+append_report "- init_from_base_step: \`$INIT_FROM_BASE_STEP\`"
 append_report "- sample_remask_low_confidence: \`$SAMPLE_REMASK_LOW_CONFIDENCE\`"
 append_report "- sample_remask_strategy: \`$SAMPLE_REMASK_STRATEGY\`"
 append_report "- sample_sampler: \`$SAMPLE_SAMPLER\`"

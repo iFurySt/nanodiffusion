@@ -28,7 +28,7 @@ os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
 import torch
 import torch.distributed as dist
 
-from nanochat.checkpoint_manager import load_checkpoint, save_checkpoint
+from nanochat.checkpoint_manager import find_last_step, load_checkpoint, save_checkpoint
 from nanochat.common import (
     COMPUTE_DTYPE,
     COMPUTE_DTYPE_REASON,
@@ -92,6 +92,8 @@ def parse_args():
     parser.add_argument("--diffusion-sigma-adaln-conditioning", action="store_true")
     parser.add_argument("--diffusion-sigma-embedding", type=str, default="scalar", choices=["scalar", "sinusoidal"])
     parser.add_argument("--diffusion-sigma-embedding-dim", type=int, default=256)
+    parser.add_argument("--init-from-base-model-tag", type=str, default=None)
+    parser.add_argument("--init-from-base-step", type=int, default=-1)
     parser.add_argument("--resume-from-step", type=int, default=-1)
     # Evaluation / output
     parser.add_argument("--eval-every", type=int, default=250)
@@ -123,6 +125,65 @@ def build_model_meta(args, vocab_size):
     with torch.device("meta"):
         model = GPT(config)
     return model
+
+
+def copy_compatible_initialization_weights(model, source_state_dict):
+    """
+    Copy matching AR/base weights into a diffusion model.
+
+    The diffusion model has one extra [MASK] vocabulary row. Token/value
+    embeddings and lm_head therefore copy the shared tokenizer rows and keep
+    newly initialized rows intact.
+    """
+    target_state = model.state_dict()
+    copied = []
+    skipped = []
+    row_extendable = ("transformer.wte.weight", "lm_head.weight")
+    with torch.no_grad():
+        for name, dst in target_state.items():
+            src = source_state_dict.get(name)
+            if src is None:
+                skipped.append((name, "missing"))
+                continue
+            src = src.to(device=dst.device, dtype=dst.dtype)
+            if src.shape == dst.shape:
+                dst.copy_(src)
+                copied.append(name)
+            elif (
+                src.ndim == 2
+                and dst.ndim == 2
+                and src.shape[1:] == dst.shape[1:]
+                and src.shape[0] <= dst.shape[0]
+                and (name in row_extendable or name.startswith("value_embeds."))
+            ):
+                dst[: src.shape[0]].copy_(src)
+                copied.append(f"{name}[:{src.shape[0]}]")
+            else:
+                skipped.append((name, f"shape {tuple(src.shape)} -> {tuple(dst.shape)}"))
+    return copied, skipped
+
+
+def initialize_from_base_checkpoint(model, base_dir, args, device):
+    if args.init_from_base_model_tag is None:
+        return
+    assert args.resume_from_step == -1, "base initialization is only supported for fresh diffusion runs"
+    source_dir = os.path.join(base_dir, "base_checkpoints", args.init_from_base_model_tag)
+    source_step = args.init_from_base_step
+    if source_step == -1:
+        source_step = find_last_step(source_dir)
+    print0(f"Initializing diffusion model from base checkpoint {source_dir} step {source_step}")
+    source_state, _optimizer_data, _meta_data = load_checkpoint(
+        source_dir,
+        source_step,
+        device,
+        load_optimizer=False,
+    )
+    source_state = {k.removeprefix("_orig_mod."): v for k, v in source_state.items()}
+    copied, skipped = copy_compatible_initialization_weights(model, source_state)
+    print0(f"Copied {len(copied)} tensors from base checkpoint; skipped {len(skipped)} tensors")
+    if skipped:
+        preview = ", ".join(f"{name} ({reason})" for name, reason in skipped[:8])
+        print0(f"Skipped base init tensors: {preview}")
 
 
 @torch.inference_mode()
@@ -202,6 +263,7 @@ def main():
     model.init_weights()
 
     base_dir = get_base_dir()
+    initialize_from_base_checkpoint(model, base_dir, args, device)
     output_dirname = args.model_tag if args.model_tag else f"diffusion_d{args.depth}"
     checkpoint_dir = os.path.join(base_dir, "diffusion_checkpoints", output_dirname)
 

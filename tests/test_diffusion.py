@@ -12,6 +12,7 @@ from nanochat.diffusion import (
     sample_masked_diffusion,
 )
 from nanochat.gpt import GPT, GPTConfig
+from scripts.diffusion_base_train import copy_compatible_initialization_weights
 from scripts.diffusion_chat_sft import sft_loader
 
 
@@ -602,6 +603,45 @@ def test_diffusion_loss_can_train_sinusoidal_adaln_sigma_conditioning():
     assert metrics["mask_fraction"] > 0
     assert model.diffusion_sigma_embedder.mlp[0].weight.grad is not None
     assert model.diffusion_sigma_adaln_projs[0].weight.grad is not None
+
+
+def test_diffusion_model_can_initialize_from_causal_vocab_weights():
+    source_config = GPTConfig(
+        sequence_len=8,
+        vocab_size=16,
+        n_layer=2,
+        n_head=2,
+        n_kv_head=2,
+        n_embd=32,
+        window_pattern="L",
+        attention_mode="causal",
+    )
+    target_config = GPTConfig(
+        sequence_len=8,
+        vocab_size=17,
+        n_layer=2,
+        n_head=2,
+        n_kv_head=2,
+        n_embd=32,
+        window_pattern="L",
+        attention_mode="bidirectional",
+        diffusion_sigma_conditioning=True,
+    )
+    source = GPT(source_config, pad_vocab_size_to=1)
+    target = GPT(target_config, pad_vocab_size_to=1)
+    source.init_weights()
+    target.init_weights()
+    original_mask_embedding = target.transformer.wte.weight[16].detach().clone()
+    original_mask_head = target.lm_head.weight[16].detach().clone()
+
+    copied, skipped = copy_compatible_initialization_weights(target, source.state_dict())
+
+    assert copied
+    assert any(name.startswith("diffusion_sigma_proj") for name, _reason in skipped)
+    assert torch.equal(target.transformer.wte.weight[:16], source.transformer.wte.weight)
+    assert torch.equal(target.lm_head.weight[:16], source.lm_head.weight)
+    assert torch.equal(target.transformer.wte.weight[16], original_mask_embedding)
+    assert torch.equal(target.lm_head.weight[16], original_mask_head)
 
 
 def test_diffusion_loss_can_normalize_by_eligible_tokens():

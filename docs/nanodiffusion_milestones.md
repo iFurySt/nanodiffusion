@@ -477,6 +477,26 @@ Known evidence:
   use a more conservative injection path such as input-only sinusoidal
   conditioning before spending another 8xA100 run. Train log:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/logs/diffusion_a100_d20_s1024_1k_score_entropy_sigma_adaln_sinusoidal256_full_20s-20260522-071025.train.log`.
+- Three 1-GPU d8 seq-256 200-step diagnostics were run before spending more
+  8xA100 time on sinusoidal conditioning. Scalar input-level sigma conditioning
+  was the best small diagnostic (`10.392314 -> 7.015034 -> 6.422985`, final eval
+  `6.423954`), while sinusoidal input conditioning was worse
+  (`10.401109 -> 7.856457 -> 7.816564`, final eval `7.751679`) and sinusoidal
+  AdaLN was also worse (`10.339487 -> 7.586989 -> 7.585907`, final eval
+  `7.529066`). This suggests sinusoidal conditioning is trainable at small
+  scale but not a better next full-size candidate. Reports:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diag_d8_s256_200_score_entropy_sigma_scalar_input-20260522-073212.md`,
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diag_d8_s256_200_score_entropy_sigma_sinusoidal_input-20260522-073212.md`,
+  and
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diag_d8_s256_200_score_entropy_sigma_sinusoidal_adaln-20260522-073212.md`.
+- Diffusion base training can now initialize compatible weights from an
+  autoregressive base checkpoint via `--init-from-base-model-tag` and
+  `--init-from-base-step`. Matching transformer weights are copied directly;
+  token/value embeddings and `lm_head` copy shared tokenizer rows and leave the
+  new diffusion `[MASK]` row initialized. This is the next broader candidate
+  because the `ar_d20_s1024_1k_20s_control` run proved the same data/model can
+  learn basic language modeling, while diffusion-from-scratch still fails the
+  fixed-prompt sample gate.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -686,11 +706,11 @@ masking, block-aligned training, CFG sampling, fixed reveal scheduling,
 mask-logit exclusion, antithetic mask sampling, exact fully masked continuation
 span training, mixed continuation-span training, corrected full-objective
 training, random remasking, direct score-entropy training, a d16 model-size
-pilot, 50-shard data expansion, SEDD analytic sampling, and scalar sigma
-conditioning through input, per-layer residual injection, and AdaLN have not
-cleared the sample gate. More of the same recipe should be avoided; the next
-candidate needs a broader change than another scalar sweep. The AR control makes
-this more specific: the next useful work should focus on a closer SEDD-style
-parameterizer, especially high-dimensional sinusoidal/noise-level embeddings and
-conditioned output scaling, rather than more data/step/model-size sweeps inside
-the current masked-denoising family.
+pilot, 50-shard data expansion, SEDD analytic sampling, scalar sigma
+conditioning through input, per-layer residual injection, and AdaLN, and
+sinusoidal sigma conditioning have not cleared the sample gate. More of the same
+recipe should be avoided; the next candidate needs a broader change than another
+scalar or sinusoidal sweep. The AR control makes this more specific: the next
+useful work should test diffusion fine-tuning initialized from the coherent AR
+control checkpoint before spending more runs inside the current
+diffusion-from-scratch family.
