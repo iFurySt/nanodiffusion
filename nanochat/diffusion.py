@@ -511,7 +511,7 @@ def sample_masked_diffusion(
     assert reveal_strategy in {"confidence", "left_to_right"}
     assert sampler in {"iterative", "sedd_analytic"}
     assert score_parameterization in {"raw", "sigma_scaled"}
-    assert 0 < mask_eps < mask_max_prob < 1
+    assert 0 < mask_eps < mask_max_prob <= 1
     if remask_low_confidence and remask_strategy == "none":
         remask_strategy = "low_confidence"
     if sampler == "sedd_analytic":
