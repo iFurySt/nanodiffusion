@@ -64,6 +64,32 @@ class FixedLogitModel(nn.Module):
         return logits
 
 
+class PromptCFGModel(nn.Module):
+    def __init__(self, mask_token_id=7):
+        super().__init__()
+        self.mask_token_id = mask_token_id
+        self.config = GPTConfig(
+            sequence_len=4,
+            vocab_size=8,
+            n_layer=1,
+            n_head=1,
+            n_kv_head=1,
+            n_embd=8,
+            window_pattern="L",
+            attention_mode="bidirectional",
+        )
+
+    def get_device(self):
+        return torch.device("cpu")
+
+    def forward(self, ids):
+        logits = torch.zeros((*ids.shape, self.config.vocab_size), dtype=torch.float32)
+        prompted = ids[:, :1] != self.mask_token_id
+        logits[..., 3] = torch.where(prompted, 2.1, 3.0)
+        logits[..., 4] = torch.where(prompted, 2.0, 0.0)
+        return logits
+
+
 class TinyConversationTokenizer:
     def get_bos_token_id(self):
         return 0
@@ -369,6 +395,15 @@ def test_sample_masked_diffusion_no_repeat_ngram_affects_output():
 
     assert baseline == [1, 3, 3, 3]
     assert no_repeat == [1, 3, 3, 4]
+
+
+def test_sample_masked_diffusion_cfg_scale_affects_prompt_conditioning():
+    model = PromptCFGModel(mask_token_id=7)
+    baseline = sample_masked_diffusion(model, mask_token_id=7, length=4, prompt_tokens=[1], steps=3)
+    guided = sample_masked_diffusion(model, mask_token_id=7, length=4, prompt_tokens=[1], steps=3, cfg_scale=1.0)
+
+    assert baseline == [1, 3, 3, 3]
+    assert guided == [1, 4, 4, 4]
 
 
 def test_sample_masked_diffusion_block_generation_preserves_length():

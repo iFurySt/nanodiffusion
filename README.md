@@ -331,14 +331,16 @@ python -m scripts.diffusion_base_eval \
   --top-k=50 \
   --repeat-penalty=0.5 \
   --no-repeat-ngram-size=3 \
-  --block-size=4
+  --block-size=4 \
+  --cfg-scale=1.5
 ```
 
 For the current baseline, `--no-repeat-ngram-size=3 --block-size=4` is the
 clearest sampling default: it prevents exact repeated trigrams and generates a
 few tokens at a time, which is less repetitive than filling the whole answer
 window at once. It still does not fix weak base-model knowledge or planning by
-itself.
+itself. `--cfg-scale` adds classifier-free guidance by comparing normal prompt
+conditioning against a copy where the prompt tokens are masked.
 
 Sampling is fixed-length. Prompt tokens stay fixed; the remaining positions start
 as `[MASK]` and are filled by iterative denoising.

@@ -274,6 +274,7 @@ def sample_masked_diffusion(
     no_repeat_ngram_size=0,
     block_size=0,
     remask_low_confidence=False,
+    cfg_scale=0.0,
 ):
     """
     Fixed-length iterative denoising sampler.
@@ -291,6 +292,7 @@ def sample_masked_diffusion(
     assert steps > 0
     assert no_repeat_ngram_size >= 0
     assert block_size >= 0
+    assert cfg_scale >= 0
 
     gen_tokens = length - len(prompt_tokens)
     if block_size > 0 and gen_tokens > block_size:
@@ -314,6 +316,7 @@ def sample_masked_diffusion(
                 no_repeat_ngram_size=no_repeat_ngram_size,
                 block_size=0,
                 remask_low_confidence=remask_low_confidence,
+                cfg_scale=cfg_scale,
             )
             remaining_tokens -= current_block
         return output
@@ -342,6 +345,11 @@ def sample_masked_diffusion(
             break
 
         logits = model(ids)
+        if cfg_scale > 0 and prompt_tokens:
+            uncond_ids = ids.clone()
+            uncond_ids[:, :len(prompt_tokens)] = mask_token_id
+            uncond_logits = model(uncond_ids)
+            logits = uncond_logits + (cfg_scale + 1) * (logits - uncond_logits)
         if forbidden_token_ids:
             logits[..., forbidden_token_ids] = -float("inf")
         if repeat_penalty > 0:

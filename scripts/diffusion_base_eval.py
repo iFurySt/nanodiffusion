@@ -54,6 +54,7 @@ def parse_args():
     parser.add_argument("--no-repeat-ngram-size", type=int, default=0)
     parser.add_argument("--block-size", type=int, default=0, help="generate answer in fixed blocks; 0 disables")
     parser.add_argument("--remask-low-confidence", action="store_true")
+    parser.add_argument("--cfg-scale", type=float, default=0.0)
     parser.add_argument("--seed", type=int, default=42)
     return parser.parse_args()
 
@@ -109,6 +110,7 @@ def run_sample(model, tokenizer, args, mask_token_id):
         no_repeat_ngram_size=args.no_repeat_ngram_size,
         block_size=args.block_size,
         remask_low_confidence=args.remask_low_confidence,
+        cfg_scale=args.cfg_scale,
     )
     prompt_len = len(prompt_tokens)
     return args.prompt + tokenizer.decode([tok for tok in ids[prompt_len:] if tok != mask_token_id])
