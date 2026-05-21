@@ -405,6 +405,26 @@ gate. The France prompt drifted into comparison loops, and code prompts still
 repeated malformed function names and fragments, so this pilot should not be
 continued without another recipe change.
 
+Training now excludes the reserved `[MASK]` id from the reconstruction softmax,
+matching sampling where `[MASK]` is forbidden as an output. A 1k d20 seq-1024
+suffix pilot tested this objective correction:
+
+```text
+model_tag: diffusion_a100_d20_s1024_1k_suffix_nomasklogit_20s
+data_shards: 20
+max_seq_len: 1024
+mask_pattern: suffix
+trained_to: step 1000
+training_time: 32.55m
+minimum_validation_diffusion_loss: 1.834602
+final_eval_loss: 1.995015
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_suffix_nomasklogit_20s-20260521-222757.md
+```
+
+This is the right training support, but the pilot still failed the fixed-prompt
+gate: factual prompts drifted and repeated, and code prompts remained non-code.
+It should not be continued to 5k by itself.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:
