@@ -345,6 +345,21 @@ This objective is easier than the uncapped objective, so loss is not directly
 comparable. Fixed-prompt samples still failed with factual drift and non-code
 continuations.
 
+A fixed left-to-right reveal schedule was also tested as a sampler-only change
+on the seq-1024 suffix checkpoints:
+
+```text
+sample_reports:
+  $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_5k_suffix_20s-left-to-right-samples-20260521-205727.md
+  $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_5k_suffix_50s-left-to-right-samples-20260521-210014.md
+  $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_5k_suffix_maxp070_20s-left-to-right-samples-20260521-210145.md
+```
+
+The fixed schedule sometimes made prose more locally continuous than
+highest-confidence reveal, but it still failed the fixed-prompt gate: factual
+prompts drifted or repeated, and `def fibonacci(n):` did not produce usable
+code. It is kept as an explainable sampling option, not as the selected default.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:
@@ -360,7 +375,8 @@ python -m scripts.diffusion_base_eval \
   --repeat-penalty=0.5 \
   --no-repeat-ngram-size=3 \
   --block-size=4 \
-  --cfg-scale=1.5
+  --cfg-scale=1.5 \
+  --reveal-strategy=confidence
 ```
 
 For the current baseline, `--no-repeat-ngram-size=3 --block-size=4` is the
@@ -369,6 +385,9 @@ few tokens at a time, which is less repetitive than filling the whole answer
 window at once. It still does not fix weak base-model knowledge or planning by
 itself. `--cfg-scale` adds classifier-free guidance by comparing normal prompt
 conditioning against a copy where the prompt tokens are masked.
+`--reveal-strategy=left_to_right` uses a fixed reveal schedule instead of
+highest-confidence reveal; it is useful for comparison but has not cleared the
+quality gate on the current checkpoints.
 
 Sampling is fixed-length. Prompt tokens stay fixed; the remaining positions start
 as `[MASK]` and are filled by iterative denoising.

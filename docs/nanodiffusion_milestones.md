@@ -225,6 +225,17 @@ Known evidence:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_5k_suffix_maxp070_20s-20260521-175947.md`.
   The capped objective is easier and the samples still failed with factual
   drift and non-code continuations, so this is not the selected baseline.
+- The sampler now also supports a fixed left-to-right reveal schedule via
+  `--reveal-strategy=left_to_right`. Spot checks on
+  `diffusion_a100_d20_s1024_5k_suffix_20s`,
+  `diffusion_a100_d20_s1024_5k_suffix_50s`, and
+  `diffusion_a100_d20_s1024_5k_suffix_maxp070_20s` showed slightly smoother
+  local prose in some cases, but factual prompts still drifted or repeated and
+  `def fibonacci(n):` still failed to produce usable code. Reports:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_5k_suffix_20s-left-to-right-samples-20260521-205727.md`,
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_5k_suffix_50s-left-to-right-samples-20260521-210014.md`,
+  and
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_5k_suffix_maxp070_20s-left-to-right-samples-20260521-210145.md`.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -430,6 +441,6 @@ setup. The suffix objective and 20-shard data run improved validation loss but
 did not clear the sample gate, so the next useful Milestone 3 candidate should
 change the objective rather than only adding data, steps, or shorter sequences.
 The suffix/span objective variants, capped masking, block-aligned training, CFG
-sampling, and 50-shard data expansion have not cleared the sample gate. More of
-the same recipe should be avoided; the next candidate needs a broader change
-than another scalar sweep.
+sampling, fixed reveal scheduling, and 50-shard data expansion have not cleared
+the sample gate. More of the same recipe should be avoided; the next candidate
+needs a broader change than another scalar sweep.
