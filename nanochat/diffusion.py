@@ -224,6 +224,7 @@ def masked_diffusion_loss(
         mask_all_eligible=mask_all_eligible,
     )
     logits = model(batch.input_ids)
+    logits[..., mask_token_id] = -float("inf")
     vocab_size = logits.size(-1)
     per_token = F.cross_entropy(
         logits.view(-1, vocab_size),

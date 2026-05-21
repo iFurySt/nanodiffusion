@@ -64,6 +64,31 @@ class FixedLogitModel(nn.Module):
         return logits
 
 
+class MaskBiasedLossModel(nn.Module):
+    def __init__(self, mask_token_id=4):
+        super().__init__()
+        self.mask_token_id = mask_token_id
+        self.config = GPTConfig(
+            sequence_len=4,
+            vocab_size=5,
+            n_layer=1,
+            n_head=1,
+            n_kv_head=1,
+            n_embd=8,
+            window_pattern="L",
+            attention_mode="bidirectional",
+        )
+
+    def get_device(self):
+        return torch.device("cpu")
+
+    def forward(self, ids):
+        logits = torch.full((*ids.shape, self.config.vocab_size), -5.0, dtype=torch.float32)
+        logits[..., 3] = 3.0
+        logits[..., self.mask_token_id] = 10.0
+        return logits
+
+
 class PromptCFGModel(nn.Module):
     def __init__(self, mask_token_id=7):
         super().__init__()
@@ -383,6 +408,22 @@ def test_diffusion_loss_can_train_answer_span_only():
 
     assert loss.isfinite()
     assert metrics["mask_fraction"] > 0
+
+
+def test_diffusion_loss_excludes_mask_token_from_targets():
+    model = MaskBiasedLossModel(mask_token_id=4)
+    clean = torch.full((2, 4), 3, dtype=torch.long)
+    eligible = torch.ones_like(clean, dtype=torch.bool)
+
+    loss, _metrics = masked_diffusion_loss(
+        model,
+        clean,
+        mask_token_id=4,
+        eligible_mask=eligible,
+        generator=torch.Generator(device=clean.device).manual_seed(123),
+    )
+
+    assert loss.item() < 0.01
 
 
 def test_tiny_embedding_model_supported_for_cpu_smoke():
