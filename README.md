@@ -518,6 +518,26 @@ This was better than pure `suffix_span_all`, but fixed-prompt samples still
 failed with prompt-word loops and non-code continuations. Treat it as useful
 negative evidence, not a selected baseline.
 
+A corrected full-objective control was run after mask-logit exclusion and
+antithetic mask sampling were both available:
+
+```text
+model_tag: diffusion_a100_d20_s1024_1k_full_antithetic_20s
+data_shards: 20
+max_seq_len: 1024
+mask_pattern: full
+mask_sampling: antithetic
+trained_to: step 1000
+training_time: 32.57m
+validation_loss_curve: 10.446225 -> 4.025616 -> 3.551752
+final_eval_loss: 3.602521
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_full_antithetic_20s-20260522-013001.md
+```
+
+The loss improved, but fixed-prompt samples still repeated prompt-adjacent words
+and the code prompt did not produce usable code. This control is also not a
+selected baseline.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:

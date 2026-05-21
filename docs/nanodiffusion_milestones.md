@@ -302,6 +302,16 @@ Known evidence:
   continuations, so it should not be continued to 5k without another broader
   change. Report:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_suffix_span_mixed64_20s-20260522-004946.md`.
+- A corrected full-objective control
+  `diffusion_a100_d20_s1024_1k_full_antithetic_20s` was run after mask-logit
+  exclusion and antithetic mask sampling were both available. It used
+  `MASK_PATTERN=full`, `MASK_SAMPLING=antithetic`, 20 shards, and seq-1024. It
+  reached step 1000 in 32.57 minutes with validation loss
+  `10.446225 -> 4.025616 -> 3.551752` and final eval loss `3.602521`.
+  Fixed-prompt samples still repeated prompt-adjacent words and the code prompt
+  did not produce usable code. This control suggests the current failure is not
+  only a suffix-objective artifact. Report:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_full_antithetic_20s-20260522-013001.md`.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -509,7 +519,7 @@ change the objective rather than only adding data, steps, or shorter sequences.
 The suffix/span objective variants, fully masked suffix training, capped
 masking, block-aligned training, CFG sampling, fixed reveal scheduling,
 mask-logit exclusion, antithetic mask sampling, exact fully masked continuation
-span training, mixed continuation-span training, a d16 model-size pilot, and
-50-shard data expansion have not cleared the sample gate. More of the same
-recipe should be avoided; the next candidate needs a broader change than
-another scalar sweep.
+span training, mixed continuation-span training, corrected full-objective
+training, a d16 model-size pilot, and 50-shard data expansion have not cleared
+the sample gate. More of the same recipe should be avoided; the next candidate
+needs a broader change than another scalar sweep.
