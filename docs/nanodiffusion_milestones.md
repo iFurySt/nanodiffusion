@@ -216,6 +216,15 @@ Known evidence:
   more directly. It was run to step 1000 (`10.401340 -> 7.085275 ->
   6.544755`, final eval `6.592731`) but samples were worse, so it was not
   continued.
+- A capped-mask seq-1024 suffix candidate
+  `diffusion_a100_d20_s1024_5k_suffix_maxp070_20s` used `MASK_MAX_PROB=0.7`.
+  It completed in 157.59 minutes and reached a much lower in-objective
+  validation loss (`5.206519 -> 1.745641 -> 1.612728 -> 1.560330 -> 1.543190
+  -> 1.443972 -> 1.436938 -> 1.365471 -> 1.344101 -> 1.260612 ->
+  1.224907`) with final eval `1.253875`. The report is
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_5k_suffix_maxp070_20s-20260521-175947.md`.
+  The capped objective is easier and the samples still failed with factual
+  drift and non-code continuations, so this is not the selected baseline.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -420,8 +429,7 @@ Concrete next run: stop spending A100 time on the same 10-shard data/seq-2048
 setup. The suffix objective and 20-shard data run improved validation loss but
 did not clear the sample gate, so the next useful Milestone 3 candidate should
 change the objective rather than only adding data, steps, or shorter sequences.
-The suffix/span objective variants and the 50-shard data expansion have not
-cleared the sample gate. More of the same recipe should be avoided; the next
-candidate needs a materially different sampler or training target. The
-remaining Milestone 3 objective knob is capped masking, so run the seq-1024
-suffix objective with `MASK_MAX_PROB=0.7` before considering broader changes.
+The suffix/span objective variants, capped masking, block-aligned training, CFG
+sampling, and 50-shard data expansion have not cleared the sample gate. More of
+the same recipe should be avoided; the next candidate needs a broader change
+than another scalar sweep.

@@ -326,6 +326,25 @@ Two sampler/objective alignment checks were rejected after short runs:
   to match `block_size=4` sampling. It was stopped at step 1000
   (`10.401340 -> 7.085275 -> 6.544755`) because samples were worse.
 
+A capped-mask seq-1024 suffix run improved its own validation objective but did
+not improve samples:
+
+```text
+model_tag: diffusion_a100_d20_s1024_5k_suffix_maxp070_20s
+data_shards: 20
+max_seq_len: 1024
+mask_pattern: suffix
+mask_max_prob: 0.7
+training_time: 157.59m
+minimum_validation_diffusion_loss: 1.224907
+final_eval_loss: 1.253875
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_5k_suffix_maxp070_20s-20260521-175947.md
+```
+
+This objective is easier than the uncapped objective, so loss is not directly
+comparable. Fixed-prompt samples still failed with factual drift and non-code
+continuations.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:
