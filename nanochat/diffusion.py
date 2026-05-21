@@ -370,10 +370,9 @@ def _apply_score_parameterization(logits, sigma, mask_token_id, score_parameteri
     return logits - esigm1_log[..., None] - math.log(mask_token_id)
 
 
-def _sample_categorical_probs(probs, generator):
-    flat = probs.view(-1, probs.size(-1))
-    sampled = torch.multinomial(flat, 1, generator=generator).view(probs.shape[:-1])
-    return sampled
+def _sample_categorical_weights(weights, generator):
+    noise = 1e-10 - (torch.rand(weights.shape, device=weights.device, generator=generator) + 1e-10).log()
+    return (weights / noise).argmax(dim=-1)
 
 
 @torch.inference_mode()
@@ -437,8 +436,7 @@ def _sample_sedd_analytic(
         mask_transition = (ids == mask_token_id).to(stag_score.dtype).unsqueeze(-1) * (1 - dsigma.neg().exp()).view(1, 1, 1)
         transition = transition + mask_transition
         probs = (stag_score * transition).clamp_min(0)
-        probs_sum = probs.sum(dim=-1, keepdim=True).clamp_min(1e-12)
-        sampled = _sample_categorical_probs(probs / probs_sum, rng)
+        sampled = _sample_categorical_weights(probs, rng)
         ids = torch.where(remaining, sampled, ids)
 
     remaining = (ids == mask_token_id) & editable
@@ -463,8 +461,7 @@ def _sample_sedd_analytic(
         transition.scatter_(-1, ids.unsqueeze(-1), curr_sigma.neg().exp().view(1, 1, 1).expand_as(ids.unsqueeze(-1)).to(stag_score.dtype))
         mask_transition = (ids == mask_token_id).to(stag_score.dtype).unsqueeze(-1) * (1 - curr_sigma.neg().exp()).view(1, 1, 1)
         probs = (stag_score * (transition + mask_transition))[..., :mask_token_id].clamp_min(0)
-        probs_sum = probs.sum(dim=-1, keepdim=True).clamp_min(1e-12)
-        sampled = _sample_categorical_probs(probs / probs_sum, rng)
+        sampled = _sample_categorical_weights(probs, rng)
         ids = torch.where(remaining, sampled, ids)
 
     return ids[0].tolist()
