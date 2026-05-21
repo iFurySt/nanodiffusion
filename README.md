@@ -161,6 +161,7 @@ MASK_LOSS_REWEIGHT=0 bash runs/diffusion_speedrun_a100.sh
 MASK_PATTERN=suffix bash runs/diffusion_speedrun_a100.sh
 MASK_PATTERN=suffix_span SPAN_TOKENS=128 bash runs/diffusion_speedrun_a100.sh
 MASK_PATTERN=suffix_all LOSS_NORMALIZATION=eligible bash runs/diffusion_speedrun_a100.sh
+MASK_SAMPLING=antithetic bash runs/diffusion_speedrun_a100.sh
 ```
 
 The defaults keep the original simple LLaDA/MDLM-style objective: sampled mask
@@ -176,6 +177,8 @@ shrinking the gradient just because only a suffix or bounded span is trainable.
 `MASK_PATTERN=suffix_all` masks the entire random suffix and trains all suffix
 targets from the visible prefix only; it removes clean-suffix leakage but is a
 much harder continuation objective.
+`MASK_SAMPLING=antithetic` spreads mask probabilities across rows in each batch
+instead of sampling every row independently.
 
 Additional A100 sweeps on 2026-05-20 showed that simply extending this 10-shard
 baseline to 10k steps, or retraining with `MASK_LOSS_REWEIGHT=0`, did not clear
@@ -424,6 +427,26 @@ report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_suffix_nomask
 This is the right training support, but the pilot still failed the fixed-prompt
 gate: factual prompts drifted and repeated, and code prompts remained non-code.
 It should not be continued to 5k by itself.
+
+An antithetic mask-probability pilot was tested after the mask-logit correction:
+
+```text
+model_tag: diffusion_a100_d20_s1024_1k_suffix_antithetic_20s
+data_shards: 20
+max_seq_len: 1024
+mask_pattern: suffix
+mask_sampling: antithetic
+trained_to: step 1000
+training_time: 32.58m
+minimum_validation_diffusion_loss: 1.810764
+final_eval_loss: 1.840987
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_suffix_antithetic_20s-20260521-231351.md
+```
+
+The validation loss was slightly better than the uniform mask-sampling pilot,
+but fixed-prompt samples still failed with prompt-word loops and non-code
+continuations. Keep antithetic sampling as a variance-reduction option, not as a
+selected baseline.
 
 ## Evaluate And Sample
 

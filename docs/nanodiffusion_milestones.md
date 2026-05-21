@@ -260,6 +260,14 @@ Known evidence:
   `1.834602` and final eval `1.995015`, but fixed-prompt samples still failed
   with factual drift/repetition and non-code continuations. Report:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_suffix_nomasklogit_20s-20260521-222757.md`.
+- Antithetic mask-probability sampling was added to spread mask probabilities
+  across rows in each batch. A 1k d20 seq-1024 suffix pilot
+  `diffusion_a100_d20_s1024_1k_suffix_antithetic_20s` used
+  `MASK_SAMPLING=antithetic` on top of mask-logit exclusion. It reached step
+  1000 in 32.58 minutes with minimum validation loss `1.810764` and final eval
+  `1.840987`, slightly better than the uniform mask-sampling pilot. Fixed-prompt
+  samples still failed with prompt-word loops and non-code continuations. Report:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_suffix_antithetic_20s-20260521-231351.md`.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -465,7 +473,8 @@ setup. The suffix objective and 20-shard data run improved validation loss but
 did not clear the sample gate, so the next useful Milestone 3 candidate should
 change the objective rather than only adding data, steps, or shorter sequences.
 The suffix/span objective variants, fully masked suffix training, capped
-masking, block-aligned training, CFG sampling, fixed reveal scheduling, mask-logit
-exclusion, a d16 model-size pilot, and 50-shard data expansion have not cleared
-the sample gate. More of the same recipe should be avoided; the next candidate
-needs a broader change than another scalar sweep.
+masking, block-aligned training, CFG sampling, fixed reveal scheduling,
+mask-logit exclusion, antithetic mask sampling, a d16 model-size pilot, and
+50-shard data expansion have not cleared the sample gate. More of the same
+recipe should be avoided; the next candidate needs a broader change than
+another scalar sweep.
