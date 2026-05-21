@@ -245,6 +245,13 @@ Known evidence:
   France/French/Paris loops plus character-level `def fibonacci(n):`
   degeneration. Report:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_suffix_all_20s-20260521-210950.md`.
+- A smaller d16 seq-1024 suffix pilot
+  `diffusion_a100_d16_s1024_1k_suffix_20s` was run as a faster model-size
+  diagnostic. It reached step 1000 in 20.88 minutes with minimum validation
+  loss `2.019670` and final eval `1.905122`, but fixed-prompt samples still
+  failed: France prompts drifted into comparison loops and code prompts repeated
+  malformed function names/fragments. Report:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d16_s1024_1k_suffix_20s-20260521-215254.md`.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -450,7 +457,7 @@ setup. The suffix objective and 20-shard data run improved validation loss but
 did not clear the sample gate, so the next useful Milestone 3 candidate should
 change the objective rather than only adding data, steps, or shorter sequences.
 The suffix/span objective variants, fully masked suffix training, capped
-masking, block-aligned training, CFG sampling, fixed reveal scheduling, and
-50-shard data expansion have not cleared the sample gate. More of the same
-recipe should be avoided; the next candidate needs a broader change than
-another scalar sweep.
+masking, block-aligned training, CFG sampling, fixed reveal scheduling, a d16
+model-size pilot, and 50-shard data expansion have not cleared the sample gate.
+More of the same recipe should be avoided; the next candidate needs a broader
+change than another scalar sweep.

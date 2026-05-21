@@ -384,6 +384,27 @@ clearly worse than the rejected suffix/span candidates. Fixed-prompt samples
 collapsed into France/French/Paris loops and character-level code degeneration,
 so it should not be continued to 5k without another change.
 
+A smaller d16 seq-1024 suffix pilot was also tested as a faster-iteration model
+size check:
+
+```text
+model_tag: diffusion_a100_d16_s1024_1k_suffix_20s
+data_shards: 20
+depth: 16
+max_seq_len: 1024
+mask_pattern: suffix
+trained_to: step 1000
+training_time: 20.88m
+minimum_validation_diffusion_loss: 2.019670
+final_eval_loss: 1.905122
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d16_s1024_1k_suffix_20s-20260521-215254.md
+```
+
+The smaller model improved iteration speed but did not improve the fixed-prompt
+gate. The France prompt drifted into comparison loops, and code prompts still
+repeated malformed function names and fragments, so this pilot should not be
+continued without another recipe change.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:
