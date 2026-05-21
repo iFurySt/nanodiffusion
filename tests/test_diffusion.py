@@ -23,7 +23,7 @@ class TinyTokenizer:
         return self.vocab_size
 
 
-def build_tiny_bidirectional_model(vocab_size=17, sequence_len=8):
+def build_tiny_bidirectional_model(vocab_size=17, sequence_len=8, diffusion_sigma_conditioning=False):
     config = GPTConfig(
         sequence_len=sequence_len,
         vocab_size=vocab_size,
@@ -33,6 +33,7 @@ def build_tiny_bidirectional_model(vocab_size=17, sequence_len=8):
         n_embd=32,
         window_pattern="L",
         attention_mode="bidirectional",
+        diffusion_sigma_conditioning=diffusion_sigma_conditioning,
     )
     model = GPT(config, pad_vocab_size_to=1)
     model.init_weights()
@@ -478,6 +479,46 @@ def test_diffusion_loss_can_train_sigma_scaled_score_entropy_objective():
     assert loss.isfinite()
     assert metrics["mask_fraction"] > 0
     assert model.transformer.wte.weight.grad is not None
+
+
+def test_diffusion_loss_can_train_sigma_conditioned_score_entropy_objective():
+    model = build_tiny_bidirectional_model(diffusion_sigma_conditioning=True)
+    clean = torch.randint(0, 16, (2, 8), dtype=torch.long)
+    generator = torch.Generator(device=clean.device).manual_seed(123)
+
+    loss, metrics = masked_diffusion_loss(
+        model,
+        clean,
+        mask_token_id=16,
+        eps=0.1,
+        max_mask_prob=0.9,
+        generator=generator,
+        loss_objective="score_entropy",
+        score_parameterization="sigma_scaled",
+    )
+    loss.backward()
+
+    assert loss.isfinite()
+    assert metrics["mask_fraction"] > 0
+    assert model.diffusion_sigma_proj.weight.grad is not None
+
+
+def test_sigma_conditioned_sampler_passes_current_noise_level():
+    model = build_tiny_bidirectional_model(diffusion_sigma_conditioning=True)
+
+    tokens = sample_masked_diffusion(
+        model,
+        mask_token_id=16,
+        length=4,
+        prompt_tokens=[1],
+        steps=3,
+        temperature=0.0,
+        seed=123,
+    )
+
+    assert len(tokens) == 4
+    assert tokens[0] == 1
+    assert all(0 <= token < model.config.vocab_size for token in tokens)
 
 
 def test_diffusion_loss_can_normalize_by_eligible_tokens():

@@ -29,6 +29,9 @@ def _patch_missing_config_keys(model_config_kwargs):
     if "attention_mode" not in model_config_kwargs:
         model_config_kwargs["attention_mode"] = "causal"
         log0(f"Patching missing attention_mode in model config to 'causal'")
+    if "diffusion_sigma_conditioning" not in model_config_kwargs:
+        model_config_kwargs["diffusion_sigma_conditioning"] = False
+        log0(f"Patching missing diffusion_sigma_conditioning in model config to False")
 
 def _patch_missing_keys(model_data, model_config):
     """Add default values for new parameters that may be missing in old checkpoints."""

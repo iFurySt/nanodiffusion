@@ -268,7 +268,10 @@ def masked_diffusion_loss(
         mask_all_eligible=mask_all_eligible,
         mask_sampling=mask_sampling,
     )
-    logits = model(batch.input_ids)
+    model_sigma = None
+    if getattr(model.config, "diffusion_sigma_conditioning", False):
+        model_sigma = -torch.log1p(-batch.mask_prob.clamp(max=1 - 1e-5))
+    logits = model(batch.input_ids, diffusion_sigma=model_sigma) if model_sigma is not None else model(batch.input_ids)
     if loss_objective == "cross_entropy":
         logits[..., mask_token_id] = -float("inf")
         vocab_size = logits.size(-1)
@@ -283,7 +286,7 @@ def masked_diffusion_loss(
         if mask_all_eligible is True or isinstance(mask_all_eligible, torch.Tensor):
             raise ValueError("score_entropy objective does not support fully masked eligible rows")
         mask_prob = batch.mask_prob.clamp(max=1 - 1e-5)
-        sigma = -torch.log1p(-mask_prob)
+        sigma = model_sigma if model_sigma is not None else -torch.log1p(-mask_prob)
         esigm1 = torch.expm1(sigma).clamp_min(1e-8)
         if score_parameterization == "sigma_scaled":
             esigm1_log = torch.where(
@@ -442,11 +445,16 @@ def sample_masked_diffusion(
         if not remaining.any():
             break
 
-        logits = model(ids)
+        diffusion_sigma = None
+        if getattr(model.config, "diffusion_sigma_conditioning", False):
+            editable_count = editable.sum(dim=1, keepdim=True).clamp_min(1)
+            mask_prob = remaining.sum(dim=1, keepdim=True).float() / editable_count.float()
+            diffusion_sigma = -torch.log1p(-mask_prob.clamp(max=0.999))
+        logits = model(ids, diffusion_sigma=diffusion_sigma) if diffusion_sigma is not None else model(ids)
         if cfg_scale > 0 and prompt_tokens:
             uncond_ids = ids.clone()
             uncond_ids[:, :len(prompt_tokens)] = mask_token_id
-            uncond_logits = model(uncond_ids)
+            uncond_logits = model(uncond_ids, diffusion_sigma=diffusion_sigma) if diffusion_sigma is not None else model(uncond_ids)
             logits = uncond_logits + (cfg_scale + 1) * (logits - uncond_logits)
         if forbidden_token_ids:
             logits[..., forbidden_token_ids] = -float("inf")

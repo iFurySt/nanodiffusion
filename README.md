@@ -190,6 +190,7 @@ MASK_PATTERN=suffix_span_mixed SPAN_TOKENS=64 LOSS_NORMALIZATION=eligible MASK_L
 MASK_SAMPLING=antithetic bash runs/diffusion_speedrun_a100.sh
 LOSS_OBJECTIVE=score_entropy MASK_MAX_PROB=0.999 MASK_SAMPLING=antithetic bash runs/diffusion_speedrun_a100.sh
 LOSS_OBJECTIVE=score_entropy SCORE_PARAMETERIZATION=sigma_scaled MASK_MAX_PROB=0.999 MASK_SAMPLING=antithetic bash runs/diffusion_speedrun_a100.sh
+DIFFUSION_SIGMA_CONDITIONING=1 LOSS_OBJECTIVE=score_entropy SCORE_PARAMETERIZATION=sigma_scaled MASK_MAX_PROB=0.999 MASK_SAMPLING=antithetic bash runs/diffusion_speedrun_a100.sh
 ```
 
 The defaults keep the original simple LLaDA/MDLM-style objective: sampled mask
@@ -617,6 +618,12 @@ Fixed-prompt samples remained repetitive: the France prompt produced "capital of
 ..." variants instead of "Paris", and `def fibonacci(n):` produced number or
 topic lists rather than executable code. This makes sigma scaling a useful
 stability improvement, not a quality baseline.
+
+The next score-entropy pilot should enable `DIFFUSION_SIGMA_CONDITIONING=1`.
+That adds a learned scalar `sigma` conditioning projection to the bidirectional
+denoiser and passes the current noise level during both training and iterative
+sampling. This is still off by default so old causal and diffusion checkpoints
+load unchanged.
 
 ## Evaluate And Sample
 

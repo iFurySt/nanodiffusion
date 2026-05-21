@@ -367,6 +367,15 @@ Known evidence:
   produced number/topic lists rather than executable Fibonacci code. This is a
   stability improvement, not a selected baseline. Report:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_score_entropy_scaled_full_20s-20260522-033603.md`.
+- `DIFFUSION_SIGMA_CONDITIONING=1` is now available for the next score-entropy
+  pilot. It adds a learned scalar `sigma` conditioning projection to the
+  bidirectional denoiser and passes the current noise level during both training
+  and iterative sampling. This is closer to SEDD's noise-conditioned denoiser
+  than loss-only score scaling, while staying disabled by default for old
+  checkpoint compatibility. Next 1k candidate:
+  `LOSS_OBJECTIVE=score_entropy`, `SCORE_PARAMETERIZATION=sigma_scaled`,
+  `DIFFUSION_SIGMA_CONDITIONING=1`, `MASK_MAX_PROB=0.999`,
+  `MASK_SAMPLING=antithetic`.
 
 ## Milestone 1: Reproducible Base Speedrun
 
