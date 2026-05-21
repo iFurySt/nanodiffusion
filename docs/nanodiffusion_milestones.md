@@ -157,6 +157,11 @@ Known evidence:
   2.127015 -> 2.033860 -> 2.013864`), and a step-3000 sample report at
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s256_5k_suffix_20s-step3000-samples-20260521.md`
   showed the same prompt-word loops and worse code-prompt degeneration.
+- The next candidate is `MASK_PATTERN=suffix_span` with `SPAN_TOKENS=128`: a
+  random prefix remains visible, only the bounded continuation span contributes
+  loss, and the future suffix is masked in the bidirectional input without
+  becoming a target. This tests whether removing clean future-token leakage
+  helps fixed-prompt generation more than whole-suffix denoising.
 
 ## Milestone 1: Reproducible Base Speedrun
 

@@ -51,7 +51,44 @@ def make_suffix_eligible_mask(clean_ids, min_prefix_frac=0.25, max_prefix_frac=0
     return positions >= prefix_lens
 
 
-def make_masked_batch(clean_ids, mask_token_id, eps=1e-3, generator=None, eligible_mask=None, max_mask_prob=1.0):
+def make_suffix_span_masks(
+    clean_ids,
+    span_tokens=128,
+    min_prefix_frac=0.25,
+    max_prefix_frac=0.75,
+    generator=None,
+):
+    """
+    Select a random visible prefix and train only a bounded continuation span.
+
+    Tokens after the span are forced to [MASK] in the model input but are not
+    targets, so the bidirectional model cannot condition on clean future suffix
+    tokens when learning prompt continuation.
+    """
+    assert clean_ids.ndim == 2
+    assert span_tokens > 0
+    assert 0 <= min_prefix_frac <= max_prefix_frac < 1
+    B, T = clean_ids.shape
+    device = clean_ids.device
+    min_prefix = min(T - 1, max(0, round(T * min_prefix_frac)))
+    max_prefix = min(T - 1, max(min_prefix, round(T * max_prefix_frac)))
+    prefix_lens = torch.randint(min_prefix, max_prefix + 1, (B, 1), device=device, generator=generator)
+    positions = torch.arange(T, device=device).view(1, T)
+    span_ends = torch.clamp(prefix_lens + span_tokens, max=T)
+    eligible_mask = (positions >= prefix_lens) & (positions < span_ends)
+    force_mask = positions >= span_ends
+    return eligible_mask, force_mask
+
+
+def make_masked_batch(
+    clean_ids,
+    mask_token_id,
+    eps=1e-3,
+    generator=None,
+    eligible_mask=None,
+    max_mask_prob=1.0,
+    force_mask=None,
+):
     """
     Build one LLaDA/MDLM-style masked batch.
 
@@ -66,6 +103,8 @@ def make_masked_batch(clean_ids, mask_token_id, eps=1e-3, generator=None, eligib
         max_mask_prob: upper bound for the sampled mask probability. Keeping
             this below 1.0 is a simple sweep knob for avoiding nearly blank
             inputs.
+        force_mask: optional bool tensor of shape (B, T). These positions are
+            replaced with [MASK] in the input but are not training targets.
 
     Returns:
         DiffusionBatch where targets are -1 for unmasked positions.
@@ -84,6 +123,11 @@ def make_masked_batch(clean_ids, mask_token_id, eps=1e-3, generator=None, eligib
     else:
         assert eligible_mask.shape == clean_ids.shape
         eligible_mask = eligible_mask.to(device=device, dtype=torch.bool)
+    if force_mask is None:
+        force_mask = torch.zeros((B, T), dtype=torch.bool, device=device)
+    else:
+        assert force_mask.shape == clean_ids.shape
+        force_mask = force_mask.to(device=device, dtype=torch.bool)
 
     mask = (torch.rand((B, T), device=device, generator=generator) < mask_prob) & eligible_mask
 
@@ -98,7 +142,7 @@ def make_masked_batch(clean_ids, mask_token_id, eps=1e-3, generator=None, eligib
             mask[row_id, eligible_positions[pick]] = True
 
     input_ids = clean_ids.clone()
-    input_ids[mask] = mask_token_id
+    input_ids[mask | force_mask] = mask_token_id
     targets = torch.full_like(clean_ids, -1)
     targets[mask] = clean_ids[mask]
     return DiffusionBatch(input_ids=input_ids, targets=targets, mask=mask, mask_prob=mask_prob)
@@ -116,6 +160,7 @@ def masked_diffusion_loss(
     mask_pattern="full",
     min_prefix_frac=0.25,
     max_prefix_frac=0.75,
+    span_tokens=128,
 ):
     """
     Compute the continuous-time masked diffusion objective.
@@ -125,12 +170,22 @@ def masked_diffusion_loss(
     `loss_reweight` are explicit sweep knobs for the first training recipe
     search.
     """
+    force_mask = None
     if mask_pattern == "full":
         effective_eligible_mask = eligible_mask
     elif mask_pattern == "suffix":
         assert eligible_mask is None, "suffix mask pattern cannot be combined with explicit eligible_mask"
         effective_eligible_mask = make_suffix_eligible_mask(
             clean_ids,
+            min_prefix_frac=min_prefix_frac,
+            max_prefix_frac=max_prefix_frac,
+            generator=generator,
+        )
+    elif mask_pattern == "suffix_span":
+        assert eligible_mask is None, "suffix_span mask pattern cannot be combined with explicit eligible_mask"
+        effective_eligible_mask, force_mask = make_suffix_span_masks(
+            clean_ids,
+            span_tokens=span_tokens,
             min_prefix_frac=min_prefix_frac,
             max_prefix_frac=max_prefix_frac,
             generator=generator,
@@ -145,6 +200,7 @@ def masked_diffusion_loss(
         generator=generator,
         eligible_mask=effective_eligible_mask,
         max_mask_prob=max_mask_prob,
+        force_mask=force_mask,
     )
     logits = model(batch.input_ids)
     vocab_size = logits.size(-1)

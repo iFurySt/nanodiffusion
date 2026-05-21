@@ -7,6 +7,7 @@ from nanochat.diffusion import (
     get_mask_token_id,
     make_masked_batch,
     make_suffix_eligible_mask,
+    make_suffix_span_masks,
     masked_diffusion_loss,
     sample_masked_diffusion,
 )
@@ -115,6 +116,27 @@ def test_make_masked_batch_respects_eligible_mask():
     assert torch.equal(batch.targets[:, :3], torch.full_like(batch.targets[:, :3], -1))
 
 
+def test_make_masked_batch_force_masks_inputs_without_targets():
+    clean = torch.arange(12, dtype=torch.long).view(2, 6)
+    eligible = torch.zeros_like(clean, dtype=torch.bool)
+    eligible[:, 2:4] = True
+    force = torch.zeros_like(clean, dtype=torch.bool)
+    force[:, 4:] = True
+    generator = torch.Generator(device=clean.device).manual_seed(123)
+    batch = make_masked_batch(
+        clean,
+        mask_token_id=99,
+        eps=0.9,
+        generator=generator,
+        eligible_mask=eligible,
+        force_mask=force,
+    )
+
+    assert torch.equal(batch.input_ids[force], torch.full_like(batch.input_ids[force], 99))
+    assert torch.equal(batch.targets[force], torch.full_like(batch.targets[force], -1))
+    assert batch.mask[:, 2:4].any(dim=1).all()
+
+
 def test_make_masked_batch_respects_max_mask_probability():
     clean = torch.arange(24, dtype=torch.long).view(4, 6)
     generator = torch.Generator(device=clean.device).manual_seed(123)
@@ -131,6 +153,24 @@ def test_make_suffix_eligible_mask_keeps_prefix_fixed():
 
     assert not eligible[:, :3].any()
     assert eligible[:, 3:].all()
+
+
+def test_make_suffix_span_masks_force_future_without_loss():
+    clean = torch.arange(16, dtype=torch.long).view(2, 8)
+    generator = torch.Generator(device=clean.device).manual_seed(123)
+    eligible, force = make_suffix_span_masks(
+        clean,
+        span_tokens=3,
+        min_prefix_frac=0.25,
+        max_prefix_frac=0.25,
+        generator=generator,
+    )
+
+    assert not eligible[:, :2].any()
+    assert eligible[:, 2:5].all()
+    assert not eligible[:, 5:].any()
+    assert not force[:, :5].any()
+    assert force[:, 5:].all()
 
 
 def test_bidirectional_gpt_diffusion_loss_backward():
@@ -160,6 +200,28 @@ def test_diffusion_loss_can_train_suffix_only():
         mask_pattern="suffix",
         min_prefix_frac=0.5,
         max_prefix_frac=0.5,
+    )
+    loss.backward()
+
+    assert loss.isfinite()
+    assert metrics["mask_fraction"] > 0
+
+
+def test_diffusion_loss_can_train_suffix_span_only():
+    model = build_tiny_bidirectional_model()
+    clean = torch.randint(0, 16, (2, 8), dtype=torch.long)
+    generator = torch.Generator(device=clean.device).manual_seed(123)
+
+    loss, metrics = masked_diffusion_loss(
+        model,
+        clean,
+        mask_token_id=16,
+        eps=0.9,
+        generator=generator,
+        mask_pattern="suffix_span",
+        min_prefix_frac=0.25,
+        max_prefix_frac=0.25,
+        span_tokens=3,
     )
     loss.backward()
 

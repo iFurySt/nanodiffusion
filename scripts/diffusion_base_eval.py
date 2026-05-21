@@ -40,9 +40,10 @@ def parse_args():
     parser.add_argument("--mask-eps", type=float, default=1e-3)
     parser.add_argument("--mask-max-prob", type=float, default=1.0)
     parser.add_argument("--no-mask-loss-reweight", action="store_true")
-    parser.add_argument("--mask-pattern", type=str, default="full", choices=["full", "suffix"])
+    parser.add_argument("--mask-pattern", type=str, default="full", choices=["full", "suffix", "suffix_span"])
     parser.add_argument("--prefix-min-frac", type=float, default=0.25)
     parser.add_argument("--prefix-max-frac", type=float, default=0.75)
+    parser.add_argument("--span-tokens", type=int, default=128)
     parser.add_argument("--prompt", type=str, default="The capital of France is")
     parser.add_argument("--max-tokens", type=int, default=32)
     parser.add_argument("--steps", type=int, default=None)
@@ -79,6 +80,7 @@ def evaluate_loss(model, tokenizer, device, args, mask_token_id, ddp_world_size)
             mask_pattern=args.mask_pattern,
             min_prefix_frac=args.prefix_min_frac,
             max_prefix_frac=args.prefix_max_frac,
+            span_tokens=args.span_tokens,
         )
         total_loss += loss
         total_batches += 1
