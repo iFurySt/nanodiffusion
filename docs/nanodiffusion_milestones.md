@@ -157,11 +157,18 @@ Known evidence:
   2.127015 -> 2.033860 -> 2.013864`), and a step-3000 sample report at
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s256_5k_suffix_20s-step3000-samples-20260521.md`
   showed the same prompt-word loops and worse code-prompt degeneration.
-- The next candidate is `MASK_PATTERN=suffix_span` with `SPAN_TOKENS=128`: a
-  random prefix remains visible, only the bounded continuation span contributes
-  loss, and the future suffix is masked in the bidirectional input without
-  becoming a target. This tests whether removing clean future-token leakage
-  helps fixed-prompt generation more than whole-suffix denoising.
+- A bounded continuation-span objective was added in commit `5b0a41e` and then
+  run as `diffusion_a100_d20_s1024_5k_suffix_span_20s` with
+  `MASK_PATTERN=suffix_span` and `SPAN_TOKENS=128`. It completed on
+  2026-05-21 after 157.01 minutes, with validation improving through step 5000
+  (`1.308891 -> 0.625595 -> 0.575395 -> 0.572878 -> 0.555393 -> 0.531591 ->
+  0.507425 -> 0.508425 -> 0.493264 -> 0.489348 -> 0.473883`) and final eval
+  loss `0.466233`. The report is
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_5k_suffix_span_20s-20260521-095859.md`.
+  The lower loss is not directly comparable with whole-suffix losses because
+  only a bounded span contributes targets. Fixed-prompt samples still failed:
+  `The capital of France is` looped around "capital", and `def fibonacci(n):`
+  remained non-code. This is a rejected recipe, not the selected baseline.
 
 ## Milestone 1: Reproducible Base Speedrun
 

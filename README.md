@@ -238,6 +238,25 @@ remained worse than seq-1024 (`5.203685 -> 2.278308 -> 2.139555 -> 2.104049 ->
 same loop failure, including `def fibonacci(n):` degenerating into repeated
 parentheses and function-name fragments.
 
+A bounded continuation-span objective was added after that:
+
+```text
+model_tag: diffusion_a100_d20_s1024_5k_suffix_span_20s
+data_shards: 20
+max_seq_len: 1024
+mask_pattern: suffix_span
+span_tokens: 128
+training_time: 157.01m
+minimum_validation_diffusion_loss: 0.473883
+final_eval_loss: 0.466233
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_5k_suffix_span_20s-20260521-095859.md
+```
+
+The loss is not directly comparable with whole-suffix runs because only the
+bounded span contributes targets. Samples still failed the quality gate:
+`The capital of France is` looped around "capital", and `def fibonacci(n):`
+remained non-code. This is a rejected recipe, not the selected quality baseline.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:
