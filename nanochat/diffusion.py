@@ -221,6 +221,16 @@ def masked_diffusion_loss(
             max_prefix_frac=max_prefix_frac,
             generator=generator,
         )
+    elif mask_pattern == "suffix_span_all":
+        assert eligible_mask is None, "suffix_span_all mask pattern cannot be combined with explicit eligible_mask"
+        effective_eligible_mask, force_mask = make_suffix_span_masks(
+            clean_ids,
+            span_tokens=span_tokens,
+            min_prefix_frac=min_prefix_frac,
+            max_prefix_frac=max_prefix_frac,
+            generator=generator,
+        )
+        mask_all_eligible = True
     else:
         raise ValueError(f"unknown mask_pattern: {mask_pattern}")
 

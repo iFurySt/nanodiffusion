@@ -370,6 +370,30 @@ def test_diffusion_loss_can_train_suffix_span_only():
     assert metrics["mask_fraction"] > 0
 
 
+def test_diffusion_loss_can_train_fully_masked_suffix_span():
+    model = build_tiny_bidirectional_model()
+    clean = torch.randint(0, 16, (2, 8), dtype=torch.long)
+    generator = torch.Generator(device=clean.device).manual_seed(123)
+
+    loss, metrics = masked_diffusion_loss(
+        model,
+        clean,
+        mask_token_id=16,
+        generator=generator,
+        mask_pattern="suffix_span_all",
+        min_prefix_frac=0.25,
+        max_prefix_frac=0.25,
+        span_tokens=3,
+        loss_normalization="eligible",
+    )
+    loss.backward()
+
+    assert loss.isfinite()
+    assert metrics["mask_fraction"] == 3 / 8
+    assert metrics["mask_prob"] == 1.0
+    assert metrics["eligible_fraction"] == 3 / 8
+
+
 def test_diffusion_loss_can_normalize_by_eligible_tokens():
     model = build_tiny_bidirectional_model()
     clean = torch.randint(0, 16, (2, 8), dtype=torch.long)
