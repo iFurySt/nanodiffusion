@@ -680,6 +680,24 @@ The next denoiser-conditioning pilot should use
 `sigma` projection before every transformer block, which is closer to SEDD's
 per-block conditioning than the input-only projection above.
 
+The per-layer sigma-conditioning pilot was stable but also failed the sample
+gate:
+
+```text
+model_tag: diffusion_a100_d20_s1024_1k_score_entropy_sigma_layer_full_20s
+loss_objective: score_entropy
+score_parameterization: sigma_scaled
+diffusion_sigma_layer_conditioning: 1
+validation_loss_curve: 10.423655 -> 4.120845 -> 3.602781
+final_eval_loss: 3.653965
+training_time: 33.33m
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_score_entropy_sigma_layer_full_20s-20260522-050812.md
+```
+
+The final France sample still looped on "capital of ..." and the Fibonacci
+prompt stayed non-code. This rules out shallow input or per-block scalar sigma
+injection as sufficient at this scale.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:
