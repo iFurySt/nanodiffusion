@@ -467,6 +467,16 @@ Known evidence:
   count or changing its initialization/LR.
   Train log:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/logs/diffusion_a100_d20_s1024_1k_score_entropy_sigma_adaln_sinusoidal_full_20s-20260522-064641.train.log`.
+- The reduced-width sinusoidal AdaLN pilot
+  `diffusion_a100_d20_s1024_1k_score_entropy_sigma_adaln_sinusoidal256_full_20s`
+  also failed to optimize and was stopped just after step 500. It used the
+  937,493,746-parameter version with 39,976,960 sigma-conditioning parameters,
+  but produced the same validation curve `10.429010 -> 10.394501`. This rules
+  out the current sinusoidal AdaLN parameterization as a useful next A100
+  candidate. The next change should be debugged at small scale first, or should
+  use a more conservative injection path such as input-only sinusoidal
+  conditioning before spending another 8xA100 run. Train log:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/logs/diffusion_a100_d20_s1024_1k_score_entropy_sigma_adaln_sinusoidal256_full_20s-20260522-071025.train.log`.
 
 ## Milestone 1: Reproducible Base Speedrun
 

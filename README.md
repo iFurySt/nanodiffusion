@@ -763,6 +763,21 @@ Do not continue that original `n_embd`-wide parameterization. The current
 implementation keeps the sinusoidal conditioning feature at 256 dimensions
 before the per-layer projections to reduce the conditioning parameter count.
 
+The reduced-width version also failed to optimize and was stopped after step
+500:
+
+```text
+model_tag: diffusion_a100_d20_s1024_1k_score_entropy_sigma_adaln_sinusoidal256_full_20s
+parameters: 937,493,746
+sigma_conditioning_parameters: 39,976,960
+validation_loss_curve: 10.429010 -> 10.394501
+train_log: $NANODIFFUSION_BASE_DIR/logs/diffusion_a100_d20_s1024_1k_score_entropy_sigma_adaln_sinusoidal256_full_20s-20260522-071025.train.log
+```
+
+The next sinusoidal-conditioning change should be debugged at small scale first,
+or use a more conservative injection path such as input-only sinusoidal
+conditioning before another full 8xA100 run.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:
