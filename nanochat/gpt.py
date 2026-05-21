@@ -168,13 +168,13 @@ def timestep_embedding(t, dim, max_period=10000):
 
 
 class TimestepEmbedder(nn.Module):
-    def __init__(self, frequency_embedding_size, hidden_size):
+    def __init__(self, frequency_embedding_size, hidden_size, output_size):
         super().__init__()
         self.frequency_embedding_size = frequency_embedding_size
         self.mlp = nn.Sequential(
             Linear(frequency_embedding_size, hidden_size, bias=False),
             nn.SiLU(),
-            Linear(hidden_size, hidden_size, bias=False),
+            Linear(hidden_size, output_size, bias=False),
         )
 
     def forward(self, sigma):
@@ -236,9 +236,9 @@ class GPT(nn.Module):
             or config.diffusion_sigma_adaln_conditioning
         )
         self.diffusion_sigma_embedder = TimestepEmbedder(
-            config.diffusion_sigma_embedding_dim, config.n_embd
+            config.diffusion_sigma_embedding_dim, config.n_embd, config.diffusion_sigma_embedding_dim
         ) if self.uses_diffusion_sigma and config.diffusion_sigma_embedding == "sinusoidal" else None
-        sigma_feature_dim = config.n_embd if self.diffusion_sigma_embedder is not None else 1
+        sigma_feature_dim = config.diffusion_sigma_embedding_dim if self.diffusion_sigma_embedder is not None else 1
         self.diffusion_sigma_proj = Linear(sigma_feature_dim, config.n_embd, bias=False) if config.diffusion_sigma_conditioning else None
         self.diffusion_sigma_layer_projs = nn.ModuleList(
             [Linear(sigma_feature_dim, config.n_embd, bias=False) for _ in range(config.n_layer)]
@@ -293,7 +293,7 @@ class GPT(nn.Module):
         torch.nn.init.normal_(self.transformer.wte.weight, mean=0.0, std=0.8)
         if self.diffusion_sigma_embedder is not None:
             torch.nn.init.normal_(self.diffusion_sigma_embedder.mlp[0].weight, mean=0.0, std=self.config.n_embd**-0.5)
-            torch.nn.init.normal_(self.diffusion_sigma_embedder.mlp[2].weight, mean=0.0, std=self.config.n_embd**-0.5)
+            torch.nn.init.normal_(self.diffusion_sigma_embedder.mlp[2].weight, mean=0.0, std=self.config.diffusion_sigma_embedding_dim**-0.5)
         if self.diffusion_sigma_proj is not None:
             torch.nn.init.zeros_(self.diffusion_sigma_proj.weight)
         if self.diffusion_sigma_layer_projs is not None:

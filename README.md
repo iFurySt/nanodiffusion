@@ -743,7 +743,25 @@ embedding and conditioned output scaling.
 replaces the scalar `log1p(sigma)` feature with a sinusoidal continuous-noise
 embedding followed by a small MLP before the existing input, per-layer, or AdaLN
 sigma projections. It is disabled by default and old checkpoints load as
-`diffusion_sigma_embedding=scalar`.
+`diffusion_sigma_embedding=scalar`. The conditioning feature is kept at 256
+dimensions before the per-layer projections; for d20 seq-1024 AdaLN this gives
+937,493,746 parameters.
+
+The first sinusoidal AdaLN pilot was stopped at step 500 because it did not
+optimize:
+
+```text
+model_tag: diffusion_a100_d20_s1024_1k_score_entropy_sigma_adaln_sinusoidal_full_20s
+diffusion_sigma_adaln_conditioning: 1
+diffusion_sigma_embedding: sinusoidal
+parameters: 1,096,090,866
+validation_loss_curve: 10.380174 -> 10.394501
+train_log: $NANODIFFUSION_BASE_DIR/logs/diffusion_a100_d20_s1024_1k_score_entropy_sigma_adaln_sinusoidal_full_20s-20260522-064641.train.log
+```
+
+Do not continue that original `n_embd`-wide parameterization. The current
+implementation keeps the sinusoidal conditioning feature at 256 dimensions
+before the per-layer projections to reduce the conditioning parameter count.
 
 ## Evaluate And Sample
 

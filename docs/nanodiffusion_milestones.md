@@ -447,10 +447,26 @@ Known evidence:
 - `DIFFUSION_SIGMA_EMBEDDING=sinusoidal` is available for the next SEDD-style
   parameterizer pilot. It replaces the scalar `log1p(sigma)` feature with a
   high-dimensional sinusoidal continuous-noise embedding and MLP before the
-  existing input, per-layer, or AdaLN sigma projections. Use it first with
-  `DIFFUSION_SIGMA_ADALN_CONDITIONING=1`, `LOSS_OBJECTIVE=score_entropy`,
-  `SCORE_PARAMETERIZATION=sigma_scaled`, `MASK_MAX_PROB=0.999`, and
-  `MASK_SAMPLING=antithetic` for the next 1k A100 run.
+  existing input, per-layer, or AdaLN sigma projections. After the first failed
+  AdaLN pilot below, the MLP output was kept at 256 conditioning dimensions
+  instead of expanding to `n_embd` before every per-layer projection, reducing
+  the d20 seq-1024 sinusoidal AdaLN parameter count from 1,096,090,866 to
+  937,493,746. Use it with `DIFFUSION_SIGMA_ADALN_CONDITIONING=1`,
+  `LOSS_OBJECTIVE=score_entropy`, `SCORE_PARAMETERIZATION=sigma_scaled`,
+  `MASK_MAX_PROB=0.999`, and `MASK_SAMPLING=antithetic` for the next 1k A100
+  run.
+- The first sinusoidal AdaLN pilot
+  `diffusion_a100_d20_s1024_1k_score_entropy_sigma_adaln_sinusoidal_full_20s`
+  was stopped after step 500 because it failed to optimize. It used
+  `DIFFUSION_SIGMA_ADALN_CONDITIONING=1` and
+  `DIFFUSION_SIGMA_EMBEDDING=sinusoidal`, increased model size to
+  1,096,090,866 parameters, and stayed near the uniform-token baseline:
+  validation loss `10.380174 -> 10.394501`. This is an optimization failure,
+  not a sample-quality run; do not continue that original `n_embd`-wide
+  conditioning parameterization without reducing the conditioning parameter
+  count or changing its initialization/LR.
+  Train log:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/logs/diffusion_a100_d20_s1024_1k_score_entropy_sigma_adaln_sinusoidal_full_20s-20260522-064641.train.log`.
 
 ## Milestone 1: Reproducible Base Speedrun
 
