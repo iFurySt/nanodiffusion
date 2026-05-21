@@ -399,6 +399,12 @@ Known evidence:
   road/supply text instead of Paris and the Fibonacci prompt remained non-code.
   Keep this as a diagnostic sampler rather than the selected default. Report:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_score_entropy_sigma_cond_full_20s-sedd-sampler-20260522-050123.md`.
+- The SEDD analytic sampler now uses the same hard categorical exponential-race
+  sampling style as the SEDD reference instead of normalized multinomial
+  sampling. A sample-only report on the per-layer sigma checkpoint still failed:
+  the France prompt drifted into Germany/road/supply text and the Fibonacci
+  prompt stayed symbolic/non-code. Report:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_score_entropy_sigma_layer_full_20s-sedd-hard-sampler-20260522-054824.md`.
 - `DIFFUSION_SIGMA_LAYER_CONDITIONING=1` is available as the next denoiser
   conditioning pilot. It injects a separate learned scalar `sigma` projection
   before every transformer block, which is closer to SEDD's per-block

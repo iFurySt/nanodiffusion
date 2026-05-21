@@ -675,6 +675,19 @@ The analytic sampler improved some sentence continuity, but the France prompt
 still drifted into unrelated road/supply text and the Fibonacci prompt remained
 non-code. Keep it as a diagnostic sampler, not the selected default.
 
+The SEDD analytic sampler uses the same hard categorical exponential-race style
+as the SEDD reference. A sample-only report on the per-layer sigma checkpoint
+still failed the gate:
+
+```text
+model_tag: diffusion_a100_d20_s1024_1k_score_entropy_sigma_layer_full_20s
+sampler_recipe: sedd_analytic
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_score_entropy_sigma_layer_full_20s-sedd-hard-sampler-20260522-054824.md
+```
+
+The France prompt drifted into Germany/road/supply text, and the Fibonacci
+prompt stayed symbolic/non-code.
+
 The next denoiser-conditioning pilot should use
 `DIFFUSION_SIGMA_LAYER_CONDITIONING=1`. This injects a separate learned scalar
 `sigma` projection before every transformer block, which is closer to SEDD's
