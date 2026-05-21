@@ -19,6 +19,16 @@ This repo is early, but it already has the base model path:
 - fixed-length iterative denoising sampling
 - base training, evaluation, checkpointing, and speedrun entrypoints
 
+## Current Status
+
+The engineering pipeline is reproducible: CPU smoke, 8xA100 base speedruns,
+fixed-prompt sampling reports, and response-only SFT smoke have all run.
+
+The quality baseline is still open. The best-tested base checkpoints still show
+prompt-word repetition, factual drift, and unusable code continuations, so SFT
+from those checkpoints should be treated as pipeline validation rather than a
+recommended chat model.
+
 The implementation is intentionally close to nanochat so that the difference
 between autoregressive language modeling and diffusion language modeling stays
 visible in the code.
