@@ -88,6 +88,7 @@ def make_masked_batch(
     eligible_mask=None,
     max_mask_prob=1.0,
     force_mask=None,
+    mask_all_eligible=False,
 ):
     """
     Build one LLaDA/MDLM-style masked batch.
@@ -105,6 +106,9 @@ def make_masked_batch(
             inputs.
         force_mask: optional bool tensor of shape (B, T). These positions are
             replaced with [MASK] in the input but are not training targets.
+        mask_all_eligible: replace every eligible position with [MASK] and
+            train all eligible targets. This is a continuation objective knob
+            for avoiding clean suffix leakage.
 
     Returns:
         DiffusionBatch where targets are -1 for unmasked positions.
@@ -129,7 +133,11 @@ def make_masked_batch(
         assert force_mask.shape == clean_ids.shape
         force_mask = force_mask.to(device=device, dtype=torch.bool)
 
-    mask = (torch.rand((B, T), device=device, generator=generator) < mask_prob) & eligible_mask
+    if mask_all_eligible:
+        mask = eligible_mask.clone()
+        mask_prob = torch.ones((B, 1), device=device)
+    else:
+        mask = (torch.rand((B, T), device=device, generator=generator) < mask_prob) & eligible_mask
 
     # Keep every row trainable even for tiny smoke-test batches.
     eligible_rows = eligible_mask.any(dim=1)
@@ -173,6 +181,7 @@ def masked_diffusion_loss(
     """
     assert loss_normalization in {"all", "eligible"}
     force_mask = None
+    mask_all_eligible = False
     if mask_pattern == "full":
         effective_eligible_mask = eligible_mask
     elif mask_pattern == "suffix":
@@ -183,6 +192,15 @@ def masked_diffusion_loss(
             max_prefix_frac=max_prefix_frac,
             generator=generator,
         )
+    elif mask_pattern == "suffix_all":
+        assert eligible_mask is None, "suffix_all mask pattern cannot be combined with explicit eligible_mask"
+        effective_eligible_mask = make_suffix_eligible_mask(
+            clean_ids,
+            min_prefix_frac=min_prefix_frac,
+            max_prefix_frac=max_prefix_frac,
+            generator=generator,
+        )
+        mask_all_eligible = True
     elif mask_pattern == "suffix_span":
         assert eligible_mask is None, "suffix_span mask pattern cannot be combined with explicit eligible_mask"
         effective_eligible_mask, force_mask = make_suffix_span_masks(
@@ -203,6 +221,7 @@ def masked_diffusion_loss(
         eligible_mask=effective_eligible_mask,
         max_mask_prob=max_mask_prob,
         force_mask=force_mask,
+        mask_all_eligible=mask_all_eligible,
     )
     logits = model(batch.input_ids)
     vocab_size = logits.size(-1)

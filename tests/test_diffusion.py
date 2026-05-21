@@ -174,6 +174,24 @@ def test_make_masked_batch_respects_eligible_mask():
     assert torch.equal(batch.targets[:, :3], torch.full_like(batch.targets[:, :3], -1))
 
 
+def test_make_masked_batch_can_mask_all_eligible_positions():
+    clean = torch.arange(12, dtype=torch.long).view(2, 6)
+    eligible = torch.zeros_like(clean, dtype=torch.bool)
+    eligible[:, 3:] = True
+    batch = make_masked_batch(
+        clean,
+        mask_token_id=99,
+        eligible_mask=eligible,
+        mask_all_eligible=True,
+    )
+
+    assert torch.equal(batch.mask, eligible)
+    assert torch.equal(batch.input_ids[eligible], torch.full_like(batch.input_ids[eligible], 99))
+    assert torch.equal(batch.targets[eligible], clean[eligible])
+    assert torch.equal(batch.targets[~eligible], torch.full_like(batch.targets[~eligible], -1))
+    assert torch.equal(batch.mask_prob, torch.ones_like(batch.mask_prob))
+
+
 def test_make_masked_batch_force_masks_inputs_without_targets():
     clean = torch.arange(12, dtype=torch.long).view(2, 6)
     eligible = torch.zeros_like(clean, dtype=torch.bool)
@@ -263,6 +281,29 @@ def test_diffusion_loss_can_train_suffix_only():
 
     assert loss.isfinite()
     assert metrics["mask_fraction"] > 0
+
+
+def test_diffusion_loss_can_train_fully_masked_suffix():
+    model = build_tiny_bidirectional_model()
+    clean = torch.randint(0, 16, (2, 8), dtype=torch.long)
+    generator = torch.Generator(device=clean.device).manual_seed(123)
+
+    loss, metrics = masked_diffusion_loss(
+        model,
+        clean,
+        mask_token_id=16,
+        generator=generator,
+        mask_pattern="suffix_all",
+        min_prefix_frac=0.5,
+        max_prefix_frac=0.5,
+        loss_normalization="eligible",
+    )
+    loss.backward()
+
+    assert loss.isfinite()
+    assert metrics["mask_fraction"] == 0.5
+    assert metrics["mask_prob"] == 1.0
+    assert metrics["eligible_fraction"] == 0.5
 
 
 def test_diffusion_loss_can_train_suffix_span_only():
