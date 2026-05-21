@@ -334,6 +334,7 @@ def sample_masked_diffusion(
     no_repeat_ngram_size=0,
     block_size=0,
     remask_low_confidence=False,
+    remask_strategy="none",
     cfg_scale=0.0,
     reveal_strategy="confidence",
 ):
@@ -354,7 +355,10 @@ def sample_masked_diffusion(
     assert no_repeat_ngram_size >= 0
     assert block_size >= 0
     assert cfg_scale >= 0
+    assert remask_strategy in {"none", "low_confidence", "random"}
     assert reveal_strategy in {"confidence", "left_to_right"}
+    if remask_low_confidence and remask_strategy == "none":
+        remask_strategy = "low_confidence"
 
     gen_tokens = length - len(prompt_tokens)
     if block_size > 0 and gen_tokens > block_size:
@@ -378,6 +382,7 @@ def sample_masked_diffusion(
                 no_repeat_ngram_size=no_repeat_ngram_size,
                 block_size=0,
                 remask_low_confidence=remask_low_confidence,
+                remask_strategy=remask_strategy,
                 cfg_scale=cfg_scale,
                 reveal_strategy=reveal_strategy,
             )
@@ -423,7 +428,7 @@ def sample_masked_diffusion(
                     logits[row, :, seen] -= repeat_penalty
         if no_repeat_ngram_size > 0:
             for row in range(ids.size(0)):
-                target_positions = editable[row] if remask_low_confidence else remaining[row]
+                target_positions = editable[row] if remask_strategy != "none" else remaining[row]
                 positions = target_positions.nonzero(as_tuple=False).flatten()
                 for pos in positions.tolist():
                     banned = _banned_ngram_tokens(ids[row], mask_token_id, no_repeat_ngram_size, pos)
@@ -446,10 +451,13 @@ def sample_masked_diffusion(
 
         flat_ids = ids.view(-1)
         flat_sampled = sampled.view(-1)
-        if remask_low_confidence:
+        if remask_strategy != "none":
             flat_ids[editable.view(-1)] = flat_sampled[editable.view(-1)]
             keep_count = max(1, -(-(total_editable * (step + 1)) // steps))
-            keep_scores = conf.masked_fill(~editable, -1.0).view(-1)
+            if remask_strategy == "random":
+                keep_scores = torch.rand(conf.shape, device=device, generator=rng).masked_fill(~editable, -1.0).view(-1)
+            else:
+                keep_scores = conf.masked_fill(~editable, -1.0).view(-1)
             keep_idx = torch.topk(keep_scores, min(keep_count, total_editable)).indices
             low_confidence = editable.clone().view(-1)
             low_confidence[keep_idx] = False

@@ -41,6 +41,7 @@ SAMPLE_SEED="${SAMPLE_SEED:-42}"
 SAMPLE_NO_REPEAT_NGRAM_SIZE="${SAMPLE_NO_REPEAT_NGRAM_SIZE:-3}"
 SAMPLE_BLOCK_SIZE="${SAMPLE_BLOCK_SIZE:-4}"
 SAMPLE_REMASK_LOW_CONFIDENCE="${SAMPLE_REMASK_LOW_CONFIDENCE:-0}"
+SAMPLE_REMASK_STRATEGY="${SAMPLE_REMASK_STRATEGY:-none}"
 RESUME_FROM_STEP="${RESUME_FROM_STEP:--1}"
 COMPILE="${COMPILE:-0}"
 
@@ -89,6 +90,7 @@ fi
 if [ "$SAMPLE_REMASK_LOW_CONFIDENCE" = "1" ]; then
   eval_args+=(--remask-low-confidence)
 fi
+eval_args+=(--remask-strategy="$SAMPLE_REMASK_STRATEGY")
 
 commit="$(git rev-parse HEAD 2>/dev/null || cat .sync/source_commit 2>/dev/null || echo unknown)"
 append_report "# NanoDiffusion A100 Speedrun"
@@ -113,6 +115,7 @@ append_report "- span_tokens: \`$SPAN_TOKENS\`"
 append_report "- loss_normalization: \`$LOSS_NORMALIZATION\`"
 append_report "- mask_sampling: \`$MASK_SAMPLING\`"
 append_report "- sample_remask_low_confidence: \`$SAMPLE_REMASK_LOW_CONFIDENCE\`"
+append_report "- sample_remask_strategy: \`$SAMPLE_REMASK_STRATEGY\`"
 append_report "- sample_block_size: \`$SAMPLE_BLOCK_SIZE\`"
 append_report "- total_batch_size: \`$TOTAL_BATCH_SIZE\`"
 append_report "- device_batch_size: \`$DEVICE_BATCH_SIZE\`"

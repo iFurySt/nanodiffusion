@@ -28,6 +28,7 @@ SAMPLE_RECIPES = [
     {"name": "temp0.8_top50_repeat0.5", "temperature": 0.8, "top_k": 50, "repeat_penalty": 0.5, "no_repeat_ngram_size": 0, "block_size": 0, "steps_scale": 1.0, "remask_low_confidence": False},
     {"name": "temp0.8_top50_no_repeat3", "temperature": 0.8, "top_k": 50, "repeat_penalty": 0.0, "no_repeat_ngram_size": 3, "block_size": 0, "steps_scale": 1.0, "remask_low_confidence": False},
     {"name": "remask_no_repeat3", "temperature": 0.8, "top_k": 50, "repeat_penalty": 0.0, "no_repeat_ngram_size": 3, "block_size": 0, "steps_scale": 1.0, "remask_low_confidence": True},
+    {"name": "random_remask_no_repeat3", "temperature": 0.8, "top_k": 50, "repeat_penalty": 0.0, "no_repeat_ngram_size": 3, "block_size": 0, "steps_scale": 1.0, "remask_low_confidence": False, "remask_strategy": "random"},
     {"name": "block4_no_repeat3", "temperature": 0.8, "top_k": 50, "repeat_penalty": 0.0, "no_repeat_ngram_size": 3, "block_size": 4, "steps_scale": 1.0, "remask_low_confidence": False, "cfg_scale": 0.0},
     {"name": "block4_left_to_right_no_repeat3", "temperature": 0.8, "top_k": 50, "repeat_penalty": 0.0, "no_repeat_ngram_size": 3, "block_size": 4, "steps_scale": 1.0, "remask_low_confidence": False, "cfg_scale": 0.0, "reveal_strategy": "left_to_right"},
     {"name": "block4_cfg1.5_no_repeat3", "temperature": 0.8, "top_k": 50, "repeat_penalty": 0.0, "no_repeat_ngram_size": 3, "block_size": 4, "steps_scale": 1.0, "remask_low_confidence": False, "cfg_scale": 1.5},
@@ -80,6 +81,7 @@ def render_sample(model, tokenizer, prompt, args, recipe, mask_token_id, forbidd
         no_repeat_ngram_size=recipe["no_repeat_ngram_size"],
         block_size=recipe["block_size"],
         remask_low_confidence=recipe["remask_low_confidence"],
+        remask_strategy=recipe.get("remask_strategy", "none"),
         cfg_scale=recipe.get("cfg_scale", 0.0),
         reveal_strategy=recipe.get("reveal_strategy", "confidence"),
     )
@@ -115,6 +117,7 @@ def build_report(args, model, tokenizer, meta):
                     f"block_size={recipe['block_size']}, "
                     f"steps_scale={recipe['steps_scale']}, "
                     f"remask_low_confidence={recipe['remask_low_confidence']}, "
+                    f"remask_strategy={recipe.get('remask_strategy', 'none')}, "
                     f"cfg_scale={recipe.get('cfg_scale', 0.0)}, "
                     f"reveal_strategy={recipe.get('reveal_strategy', 'confidence')})",
                     "",
