@@ -288,6 +288,20 @@ Known evidence:
   non-code continuations, so this exact block-aligned objective is also
   rejected. Report:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_suffix_span_all16_20s-20260522-000814.md`.
+- A mixed continuation-span objective `MASK_PATTERN=suffix_span_mixed` was added
+  to train half the rows with a fully masked span and half with the ordinary
+  no-future-leak span. This is a broader curriculum-style objective intended to
+  expose the model to both all-mask generation and partially revealed revision.
+  The 1k d20 seq-1024 pilot
+  `diffusion_a100_d20_s1024_1k_suffix_span_mixed64_20s` used
+  `SPAN_TOKENS=64`, `LOSS_NORMALIZATION=eligible`, and
+  `MASK_LOSS_REWEIGHT=0`. It reached step 1000 in 32.41 minutes with validation
+  loss `7.670461 -> 5.141562 -> 4.825332` and final eval loss `4.672655`,
+  better than the pure fully masked span pilot but still worse than the suffix
+  pilots. Fixed-prompt samples still failed with prompt-word loops and non-code
+  continuations, so it should not be continued to 5k without another broader
+  change. Report:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_suffix_span_mixed64_20s-20260522-004946.md`.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -495,6 +509,7 @@ change the objective rather than only adding data, steps, or shorter sequences.
 The suffix/span objective variants, fully masked suffix training, capped
 masking, block-aligned training, CFG sampling, fixed reveal scheduling,
 mask-logit exclusion, antithetic mask sampling, exact fully masked continuation
-span training, a d16 model-size pilot, and 50-shard data expansion have not
-cleared the sample gate. More of the same recipe should be avoided; the next
-candidate needs a broader change than another scalar sweep.
+span training, mixed continuation-span training, a d16 model-size pilot, and
+50-shard data expansion have not cleared the sample gate. More of the same
+recipe should be avoided; the next candidate needs a broader change than
+another scalar sweep.

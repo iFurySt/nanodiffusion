@@ -496,6 +496,28 @@ This objective is explicit and better aligned with block-wise sampling, but the
 pilot still failed the fixed-prompt gate with prompt-adjacent word loops and
 non-code continuations. Do not continue it to 5k without a broader change.
 
+A mixed continuation-span pilot trained half the rows with a fully masked span
+and half with the ordinary no-future-leak span:
+
+```text
+model_tag: diffusion_a100_d20_s1024_1k_suffix_span_mixed64_20s
+data_shards: 20
+max_seq_len: 1024
+mask_pattern: suffix_span_mixed
+span_tokens: 64
+loss_normalization: eligible
+mask_loss_reweight: 0
+trained_to: step 1000
+training_time: 32.41m
+validation_loss_curve: 7.670461 -> 5.141562 -> 4.825332
+final_eval_loss: 4.672655
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_suffix_span_mixed64_20s-20260522-004946.md
+```
+
+This was better than pure `suffix_span_all`, but fixed-prompt samples still
+failed with prompt-word loops and non-code continuations. Treat it as useful
+negative evidence, not a selected baseline.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:
