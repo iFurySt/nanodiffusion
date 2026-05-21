@@ -144,6 +144,13 @@ Known evidence:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_5k_suffix_20s-step7000-samples-20260521.md`
   showed the same function-name and phrase-loop failures. More steps on this
   recipe did not justify continuing to 10k.
+- A short-prefix seq-1024 suffix variant
+  `diffusion_a100_d20_s1024_5k_suffix_20s_p025` used
+  `PREFIX_MIN_FRAC=0.0` and `PREFIX_MAX_FRAC=0.25` to better match very short
+  fixed prompts. It was stopped at step 1000 because validation remained far
+  worse (`9.108521 -> 3.620450 -> 3.457720`) and a step-1000 sample report at
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_5k_suffix_20s_p025-step1000-samples-20260521.md`
+  still showed prompt-word loops and malformed function-name continuations.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -347,8 +354,9 @@ base samples are no longer dominated by repeated phrases.
 Concrete next run: stop spending A100 time on the same 10-shard data/seq-2048
 setup. The suffix objective and 20-shard data run improved validation loss but
 did not clear the sample gate, so the next useful Milestone 3 candidate should
-change train/sample alignment rather than only adding data or steps. The current
-suffix runs train with a random visible prefix between 25% and 75% of the
-sequence, while the fixed prompts are very short. The next clean comparison is a
-seq-1024 suffix run with a short visible prefix range (`0.0` to `0.25`) to test
-whether short-prompt continuation quality improves.
+change generation pressure rather than only adding data or steps. The seq-1024
+run lowered validation loss but still trained on a much longer sequence than the
+fixed prompt samples require, and the short-prefix variant was too hard. The
+next clean comparison is a seq-256 suffix run: the generated 64-token window is
+a much larger share of the training sequence, while the model and token budget
+stay comparable.

@@ -223,6 +223,12 @@ function names. Resuming this checkpoint toward 10k was stopped at step 7000
 after validation regressed (`1.736814 -> 1.951241 -> 1.934933 -> 1.897121 ->
 1.816883`) and a step-7000 sample report still showed the same failure mode.
 
+A short-prefix seq-1024 variant (`PREFIX_MIN_FRAC=0.0`,
+`PREFIX_MAX_FRAC=0.25`) was stopped at step 1000. It was intended to align
+training with very short fixed prompts, but validation stayed far worse
+(`9.108521 -> 3.620450 -> 3.457720`) and step-1000 samples still repeated
+prompt words and malformed function names.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:
