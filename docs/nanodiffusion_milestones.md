@@ -180,6 +180,16 @@ Known evidence:
   by eligible target tokens instead of the full sequence length. The previous
   span runs used `span_tokens=128` on `seq_len=1024`, so the objective was
   scaled down by roughly 8x relative to a full-sequence objective.
+- An eligible-normalized bounded-span candidate
+  `diffusion_a100_d20_s1024_5k_suffix_span_elig_20s` was run to step 1000. It
+  validated the new scaling path (`10.471129 -> 4.889950 -> 4.247498`, final
+  eval `4.195501`) but step-1000 samples were still dominated by loops, so it
+  was not resumed to 5k. The report is
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_5k_suffix_span_elig_20s-20260521-133041.md`.
+- A `block_size=1` sampler spot check on the best seq-1024 suffix, span, and
+  eligible-normalized checkpoints did not clear the fixed-prompt gate. The
+  suffix checkpoint became slightly more coherent, but factual and code prompts
+  still failed.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -384,7 +394,7 @@ Concrete next run: stop spending A100 time on the same 10-shard data/seq-2048
 setup. The suffix objective and 20-shard data run improved validation loss but
 did not clear the sample gate, so the next useful Milestone 3 candidate should
 change the objective rather than only adding data, steps, or shorter sequences.
-The suffix objective still asks the model to denoise the whole remaining
-sequence. The next useful change is a bounded continuation-span objective that
-masks the future context but only trains loss on the next short span after the
-visible prefix.
+The suffix/span objective variants have not cleared the sample gate. The next
+useful candidate from the Milestone 3 sweep is a 50-shard seq-1024 suffix run,
+because 10 and 20 shards were insufficient and the objective-only changes did
+not produce a selected baseline.

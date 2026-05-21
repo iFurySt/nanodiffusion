@@ -278,6 +278,26 @@ This better matched the all-masked start of sampling, but it was worse on
 validation and produced more severe fixed-prompt degeneration at step 1000, so
 it was stopped instead of running to 5k.
 
+An eligible-normalized bounded-span run was tested to avoid shrinking gradients
+by the `span_tokens / max_seq_len` ratio:
+
+```text
+model_tag: diffusion_a100_d20_s1024_5k_suffix_span_elig_20s
+mask_pattern: suffix_span
+loss_normalization: eligible
+span_tokens: 128
+trained_to: step 1000
+training_time: 31.18m
+validation_loss: 10.471129 -> 4.889950 -> 4.247498
+final_eval_loss: 4.195501
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_5k_suffix_span_elig_20s-20260521-133041.md
+```
+
+The larger loss is expected because it is now normalized by eligible tokens.
+Samples at step 1000 were still dominated by loops, so it was not resumed to
+5k. A separate `block_size=1` spot check on the best suffix and span checkpoints
+also failed the fixed-prompt gate.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:
