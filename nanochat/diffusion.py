@@ -89,6 +89,7 @@ def make_masked_batch(
     max_mask_prob=1.0,
     force_mask=None,
     mask_all_eligible=False,
+    mask_sampling="uniform",
 ):
     """
     Build one LLaDA/MDLM-style masked batch.
@@ -109,6 +110,8 @@ def make_masked_batch(
         mask_all_eligible: replace every eligible position with [MASK] and
             train all eligible targets. This is a continuation objective knob
             for avoiding clean suffix leakage.
+        mask_sampling: "uniform" samples each row independently; "antithetic"
+            spreads row mask probabilities evenly across the batch.
 
     Returns:
         DiffusionBatch where targets are -1 for unmasked positions.
@@ -117,10 +120,16 @@ def make_masked_batch(
     assert clean_ids.ndim == 2
     assert eps > 0 and eps < 1
     assert max_mask_prob > eps and max_mask_prob <= 1
+    assert mask_sampling in {"uniform", "antithetic"}
     B, T = clean_ids.shape
     device = clean_ids.device
 
-    t = torch.rand((B, 1), device=device, generator=generator)
+    if mask_sampling == "uniform":
+        t = torch.rand((B, 1), device=device, generator=generator)
+    else:
+        offset = torch.rand((1, 1), device=device, generator=generator)
+        row_offsets = torch.arange(B, device=device, dtype=torch.float32).view(B, 1) / B
+        t = (offset + row_offsets) % 1.0
     mask_prob = eps + (max_mask_prob - eps) * t
     if eligible_mask is None:
         eligible_mask = torch.ones((B, T), dtype=torch.bool, device=device)
@@ -170,6 +179,7 @@ def masked_diffusion_loss(
     max_prefix_frac=0.75,
     span_tokens=128,
     loss_normalization="all",
+    mask_sampling="uniform",
 ):
     """
     Compute the continuous-time masked diffusion objective.
@@ -180,6 +190,7 @@ def masked_diffusion_loss(
     first training recipe search.
     """
     assert loss_normalization in {"all", "eligible"}
+    assert mask_sampling in {"uniform", "antithetic"}
     force_mask = None
     mask_all_eligible = False
     if mask_pattern == "full":
@@ -222,6 +233,7 @@ def masked_diffusion_loss(
         max_mask_prob=max_mask_prob,
         force_mask=force_mask,
         mask_all_eligible=mask_all_eligible,
+        mask_sampling=mask_sampling,
     )
     logits = model(batch.input_ids)
     logits[..., mask_token_id] = -float("inf")

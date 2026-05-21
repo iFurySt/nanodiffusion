@@ -45,6 +45,7 @@ def parse_args():
     parser.add_argument("--prefix-max-frac", type=float, default=0.75)
     parser.add_argument("--span-tokens", type=int, default=128)
     parser.add_argument("--loss-normalization", type=str, default="all", choices=["all", "eligible"])
+    parser.add_argument("--mask-sampling", type=str, default="uniform", choices=["uniform", "antithetic"])
     parser.add_argument("--prompt", type=str, default="The capital of France is")
     parser.add_argument("--max-tokens", type=int, default=32)
     parser.add_argument("--steps", type=int, default=None)
@@ -85,6 +86,7 @@ def evaluate_loss(model, tokenizer, device, args, mask_token_id, ddp_world_size)
             max_prefix_frac=args.prefix_max_frac,
             span_tokens=args.span_tokens,
             loss_normalization=args.loss_normalization,
+            mask_sampling=args.mask_sampling,
         )
         total_loss += loss
         total_batches += 1

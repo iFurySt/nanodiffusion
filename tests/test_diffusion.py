@@ -247,6 +247,23 @@ def test_make_masked_batch_respects_max_mask_probability():
     assert batch.mask.any(dim=1).all()
 
 
+def test_make_masked_batch_antithetic_mask_sampling_spreads_probabilities():
+    clean = torch.arange(24, dtype=torch.long).view(4, 6)
+    generator = torch.Generator(device=clean.device).manual_seed(123)
+    batch = make_masked_batch(
+        clean,
+        mask_token_id=99,
+        eps=0.01,
+        max_mask_prob=0.81,
+        generator=generator,
+        mask_sampling="antithetic",
+    )
+
+    sorted_probs = batch.mask_prob.flatten().sort().values
+    assert torch.allclose(sorted_probs[1:] - sorted_probs[:-1], torch.full((3,), 0.2))
+    assert batch.mask.any(dim=1).all()
+
+
 def test_make_suffix_eligible_mask_keeps_prefix_fixed():
     clean = torch.arange(24, dtype=torch.long).view(4, 6)
     generator = torch.Generator(device=clean.device).manual_seed(123)
