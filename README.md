@@ -538,6 +538,20 @@ The loss improved, but fixed-prompt samples still repeated prompt-adjacent words
 and the code prompt did not produce usable code. This control is also not a
 selected baseline.
 
+An autoregressive control with the same d20, seq-1024, 20-shard data path and
+global batch reached validation BPB `0.857841` after 1k steps in 17.21 minutes:
+
+```text
+model_tag: ar_d20_s1024_1k_20s_control
+validation_bpb_curve: 3.171669 -> 0.943486 -> 0.857841
+log: $NANODIFFUSION_BASE_DIR/logs/ar_d20_s1024_1k_20s_control-20260522-021154.train.log
+```
+
+The AR control still repeated and did not solve the code prompt, but it produced
+much more language-like fixed-prompt continuations than the diffusion pilots
+after the same 1k-step budget. This points the next work at the diffusion
+objective/sampler rather than the shared data/tokenizer path alone.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:

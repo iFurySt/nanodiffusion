@@ -312,6 +312,19 @@ Known evidence:
   did not produce usable code. This control suggests the current failure is not
   only a suffix-objective artifact. Report:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_full_antithetic_20s-20260522-013001.md`.
+- An autoregressive control `ar_d20_s1024_1k_20s_control` was trained with the
+  same d20, seq-1024, 20-shard data path and 524,288-token global batch. It
+  reached step 1000 in 17.21 minutes with validation BPB
+  `3.171669 -> 0.943486 -> 0.857841` and generated substantially more
+  language-like fixed-prompt continuations than the diffusion pilots: the France
+  prompt answered Paris before repeating, the story/news prompts produced
+  coherent prose, and the science/factual prompts were locally plausible. It
+  still repeated heavily and did not solve the `def fibonacci(n):` code prompt,
+  but this control shows that the shared data, tokenizer, and model scale can
+  support basic language modeling after 1k steps. The main remaining bottleneck
+  is therefore the diffusion objective/sampler, not the inherited data path
+  alone. Log:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/logs/ar_d20_s1024_1k_20s_control-20260522-021154.train.log`.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -522,4 +535,7 @@ mask-logit exclusion, antithetic mask sampling, exact fully masked continuation
 span training, mixed continuation-span training, corrected full-objective
 training, a d16 model-size pilot, and 50-shard data expansion have not cleared
 the sample gate. More of the same recipe should be avoided; the next candidate
-needs a broader change than another scalar sweep.
+needs a broader change than another scalar sweep. The AR control makes this
+more specific: the next useful work should focus on a stronger discrete
+diffusion formulation or sampler rather than more data/step/model-size sweeps
+inside the current masked-denoising family.
