@@ -151,6 +151,12 @@ Known evidence:
   worse (`9.108521 -> 3.620450 -> 3.457720`) and a step-1000 sample report at
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_5k_suffix_20s_p025-step1000-samples-20260521.md`
   still showed prompt-word loops and malformed function-name continuations.
+- A seq-256 suffix candidate `diffusion_a100_d20_s256_5k_suffix_20s` was
+  stopped at step 3000. It ran faster, but validation remained worse than the
+  seq-1024 candidate (`5.203685 -> 2.278308 -> 2.139555 -> 2.104049 ->
+  2.127015 -> 2.033860 -> 2.013864`), and a step-3000 sample report at
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s256_5k_suffix_20s-step3000-samples-20260521.md`
+  showed the same prompt-word loops and worse code-prompt degeneration.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -354,9 +360,8 @@ base samples are no longer dominated by repeated phrases.
 Concrete next run: stop spending A100 time on the same 10-shard data/seq-2048
 setup. The suffix objective and 20-shard data run improved validation loss but
 did not clear the sample gate, so the next useful Milestone 3 candidate should
-change generation pressure rather than only adding data or steps. The seq-1024
-run lowered validation loss but still trained on a much longer sequence than the
-fixed prompt samples require, and the short-prefix variant was too hard. The
-next clean comparison is a seq-256 suffix run: the generated 64-token window is
-a much larger share of the training sequence, while the model and token budget
-stay comparable.
+change the objective rather than only adding data, steps, or shorter sequences.
+The suffix objective still asks the model to denoise the whole remaining
+sequence. The next useful change is a bounded continuation-span objective that
+masks the future context but only trains loss on the next short span after the
+visible prefix.

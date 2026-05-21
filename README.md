@@ -229,6 +229,12 @@ training with very short fixed prompts, but validation stayed far worse
 (`9.108521 -> 3.620450 -> 3.457720`) and step-1000 samples still repeated
 prompt words and malformed function names.
 
+A seq-256 suffix run was stopped at step 3000. It trained faster, but validation
+remained worse than seq-1024 (`5.203685 -> 2.278308 -> 2.139555 -> 2.104049 ->
+2.127015 -> 2.033860 -> 2.013864`) and the step-3000 sample report showed the
+same loop failure, including `def fibonacci(n):` degenerating into repeated
+parentheses and function-name fragments.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:
