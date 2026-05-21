@@ -161,15 +161,17 @@ def masked_diffusion_loss(
     min_prefix_frac=0.25,
     max_prefix_frac=0.75,
     span_tokens=128,
+    loss_normalization="all",
 ):
     """
     Compute the continuous-time masked diffusion objective.
 
     The per-token CE is divided by the row's mask probability by default,
     matching the simple LLaDA/MDLM estimator. `max_mask_prob` and
-    `loss_reweight` are explicit sweep knobs for the first training recipe
-    search.
+    `loss_reweight` and `loss_normalization` are explicit sweep knobs for the
+    first training recipe search.
     """
+    assert loss_normalization in {"all", "eligible"}
     force_mask = None
     if mask_pattern == "full":
         effective_eligible_mask = eligible_mask
@@ -211,11 +213,25 @@ def masked_diffusion_loss(
         reduction="none",
     ).view_as(clean_ids)
     weighted = per_token / batch.mask_prob if loss_reweight else per_token
-    loss = weighted.sum() / clean_ids.numel()
+    if loss_normalization == "eligible":
+        if effective_eligible_mask is None:
+            denominator = torch.tensor(clean_ids.numel(), device=clean_ids.device, dtype=weighted.dtype)
+            eligible_fraction = torch.tensor(1.0, device=clean_ids.device, dtype=weighted.dtype)
+        else:
+            denominator = effective_eligible_mask.sum().clamp_min(1).to(dtype=weighted.dtype)
+            eligible_fraction = effective_eligible_mask.float().mean()
+    else:
+        denominator = torch.tensor(clean_ids.numel(), device=clean_ids.device, dtype=weighted.dtype)
+        if effective_eligible_mask is None:
+            eligible_fraction = torch.tensor(1.0, device=clean_ids.device, dtype=weighted.dtype)
+        else:
+            eligible_fraction = effective_eligible_mask.float().mean()
+    loss = weighted.sum() / denominator
     metrics = {
         "loss": loss.detach(),
         "mask_fraction": batch.mask.float().mean().detach(),
         "mask_prob": batch.mask_prob.mean().detach(),
+        "eligible_fraction": eligible_fraction.detach(),
     }
     return loss, metrics
 

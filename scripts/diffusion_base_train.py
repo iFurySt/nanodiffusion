@@ -83,6 +83,7 @@ def parse_args():
     parser.add_argument("--prefix-min-frac", type=float, default=0.25)
     parser.add_argument("--prefix-max-frac", type=float, default=0.75)
     parser.add_argument("--span-tokens", type=int, default=128)
+    parser.add_argument("--loss-normalization", type=str, default="all", choices=["all", "eligible"])
     parser.add_argument("--resume-from-step", type=int, default=-1)
     # Evaluation / output
     parser.add_argument("--eval-every", type=int, default=250)
@@ -136,6 +137,7 @@ def evaluate_diffusion_loss(model, tokenizer, device, args, mask_token_id, ddp_w
             min_prefix_frac=args.prefix_min_frac,
             max_prefix_frac=args.prefix_max_frac,
             span_tokens=args.span_tokens,
+            loss_normalization=args.loss_normalization,
         )
         total_loss += loss
         total_batches += 1
@@ -323,6 +325,7 @@ def main():
                 min_prefix_frac=args.prefix_min_frac,
                 max_prefix_frac=args.prefix_max_frac,
                 span_tokens=args.span_tokens,
+                loss_normalization=args.loss_normalization,
             )
             train_loss = loss.detach()
             (loss / grad_accum_steps).backward()
@@ -379,6 +382,7 @@ def main():
             "Prefix min fraction": args.prefix_min_frac,
             "Prefix max fraction": args.prefix_max_frac,
             "Span tokens": args.span_tokens,
+            "Loss normalization": args.loss_normalization,
         },
         {
             "Minimum validation diffusion loss": min_val_loss,

@@ -176,6 +176,10 @@ Known evidence:
   0.786628 -> 0.737556`) and step-1000 samples showed more severe fixed-prompt
   degeneration. The sample report is
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_5k_suffix_span_m070_20s-step1000-samples-20260521.md`.
+- The next candidate should keep the bounded span objective but normalize loss
+  by eligible target tokens instead of the full sequence length. The previous
+  span runs used `span_tokens=128` on `seq_len=1024`, so the objective was
+  scaled down by roughly 8x relative to a full-sequence objective.
 
 ## Milestone 1: Reproducible Base Speedrun
 

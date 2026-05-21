@@ -156,6 +156,7 @@ Useful sweep overrides for the next base runs:
 ```bash
 MASK_MAX_PROB=0.7 bash runs/diffusion_speedrun_a100.sh
 MASK_EPS=0.7 MASK_PATTERN=suffix_span bash runs/diffusion_speedrun_a100.sh
+LOSS_NORMALIZATION=eligible MASK_PATTERN=suffix_span bash runs/diffusion_speedrun_a100.sh
 MASK_LOSS_REWEIGHT=0 bash runs/diffusion_speedrun_a100.sh
 MASK_PATTERN=suffix bash runs/diffusion_speedrun_a100.sh
 MASK_PATTERN=suffix_span SPAN_TOKENS=128 bash runs/diffusion_speedrun_a100.sh
@@ -169,7 +170,8 @@ fixed-prompt continuation. `MASK_PATTERN=suffix_span` narrows that objective to
 a bounded continuation span and masks the future suffix without adding it to the
 loss, which better matches fixed-length prompt sampling. Raising `MASK_EPS`
 with `suffix_span` tests the fully masked continuation regime used at the start
-of sampling.
+of sampling. `LOSS_NORMALIZATION=eligible` keeps prompt-fixed objectives from
+shrinking the gradient just because only a suffix or bounded span is trainable.
 
 Additional A100 sweeps on 2026-05-20 showed that simply extending this 10-shard
 baseline to 10k steps, or retraining with `MASK_LOSS_REWEIGHT=0`, did not clear

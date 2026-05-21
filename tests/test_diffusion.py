@@ -229,6 +229,40 @@ def test_diffusion_loss_can_train_suffix_span_only():
     assert metrics["mask_fraction"] > 0
 
 
+def test_diffusion_loss_can_normalize_by_eligible_tokens():
+    model = build_tiny_bidirectional_model()
+    clean = torch.randint(0, 16, (2, 8), dtype=torch.long)
+
+    all_loss, all_metrics = masked_diffusion_loss(
+        model,
+        clean,
+        mask_token_id=16,
+        eps=0.9,
+        generator=torch.Generator(device=clean.device).manual_seed(123),
+        mask_pattern="suffix_span",
+        min_prefix_frac=0.25,
+        max_prefix_frac=0.25,
+        span_tokens=2,
+        loss_normalization="all",
+    )
+    eligible_loss, eligible_metrics = masked_diffusion_loss(
+        model,
+        clean,
+        mask_token_id=16,
+        eps=0.9,
+        generator=torch.Generator(device=clean.device).manual_seed(123),
+        mask_pattern="suffix_span",
+        min_prefix_frac=0.25,
+        max_prefix_frac=0.25,
+        span_tokens=2,
+        loss_normalization="eligible",
+    )
+
+    assert eligible_metrics["eligible_fraction"] == 0.25
+    assert all_metrics["eligible_fraction"] == 0.25
+    assert torch.allclose(eligible_loss, all_loss * 4)
+
+
 def test_diffusion_loss_can_train_answer_span_only():
     model = build_tiny_bidirectional_model()
     clean = torch.randint(0, 16, (2, 8), dtype=torch.long)
