@@ -90,6 +90,38 @@ class PromptCFGModel(nn.Module):
         return logits
 
 
+class PositionRevealModel(nn.Module):
+    def __init__(self, mask_token_id=7):
+        super().__init__()
+        self.mask_token_id = mask_token_id
+        self.config = GPTConfig(
+            sequence_len=4,
+            vocab_size=8,
+            n_layer=1,
+            n_head=1,
+            n_kv_head=1,
+            n_embd=8,
+            window_pattern="L",
+            attention_mode="bidirectional",
+        )
+
+    def get_device(self):
+        return torch.device("cpu")
+
+    def forward(self, ids):
+        logits = torch.full((*ids.shape, self.config.vocab_size), -5.0, dtype=torch.float32)
+        logits[:, :, 3] = 1.0
+        logits[:, :, 4] = 0.5
+
+        logits[:, 1, 3] = 2.0
+        logits[:, 1, 4] = 1.9
+
+        previous_revealed = ids[:, 1] != self.mask_token_id
+        logits[:, 2, 3] = torch.where(previous_revealed, -5.0, 6.0)
+        logits[:, 2, 4] = torch.where(previous_revealed, 6.0, -5.0)
+        return logits
+
+
 class TinyConversationTokenizer:
     def get_bos_token_id(self):
         return 0
@@ -404,6 +436,22 @@ def test_sample_masked_diffusion_cfg_scale_affects_prompt_conditioning():
 
     assert baseline == [1, 3, 3, 3]
     assert guided == [1, 4, 4, 4]
+
+
+def test_sample_masked_diffusion_reveal_strategy_affects_schedule():
+    model = PositionRevealModel(mask_token_id=7)
+    confidence = sample_masked_diffusion(model, mask_token_id=7, length=4, prompt_tokens=[1], steps=3)
+    left_to_right = sample_masked_diffusion(
+        model,
+        mask_token_id=7,
+        length=4,
+        prompt_tokens=[1],
+        steps=3,
+        reveal_strategy="left_to_right",
+    )
+
+    assert confidence == [1, 3, 3, 3]
+    assert left_to_right == [1, 3, 4, 3]
 
 
 def test_sample_masked_diffusion_block_generation_preserves_length():

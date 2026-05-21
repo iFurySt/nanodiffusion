@@ -37,6 +37,7 @@ def parse_args():
     parser.add_argument("--block-size", type=int, default=0, help="generate answer in fixed blocks; 0 disables")
     parser.add_argument("--remask-low-confidence", action="store_true")
     parser.add_argument("--cfg-scale", type=float, default=0.0)
+    parser.add_argument("--reveal-strategy", type=str, default="confidence", choices=["confidence", "left_to_right"])
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--device-type", type=str, default="", choices=["cuda", "cpu", "mps"])
     return parser.parse_args()
@@ -60,6 +61,7 @@ def render(model, tokenizer, prompt, args, mask_token_id):
         block_size=args.block_size,
         remask_low_confidence=args.remask_low_confidence,
         cfg_scale=args.cfg_scale,
+        reveal_strategy=args.reveal_strategy,
     )
     answer_ids = [tok for tok in ids[len(prompt_tokens):] if tok != mask_token_id]
     return prompt + tokenizer.decode(answer_ids)

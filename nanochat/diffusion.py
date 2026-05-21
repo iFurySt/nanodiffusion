@@ -275,6 +275,7 @@ def sample_masked_diffusion(
     block_size=0,
     remask_low_confidence=False,
     cfg_scale=0.0,
+    reveal_strategy="confidence",
 ):
     """
     Fixed-length iterative denoising sampler.
@@ -293,6 +294,7 @@ def sample_masked_diffusion(
     assert no_repeat_ngram_size >= 0
     assert block_size >= 0
     assert cfg_scale >= 0
+    assert reveal_strategy in {"confidence", "left_to_right"}
 
     gen_tokens = length - len(prompt_tokens)
     if block_size > 0 and gen_tokens > block_size:
@@ -317,6 +319,7 @@ def sample_masked_diffusion(
                 block_size=0,
                 remask_low_confidence=remask_low_confidence,
                 cfg_scale=cfg_scale,
+                reveal_strategy=reveal_strategy,
             )
             remaining_tokens -= current_block
         return output
@@ -395,8 +398,11 @@ def sample_masked_diffusion(
             remaining_count = int(remaining.sum().item())
             steps_left = steps - step
             reveal_count = max(1, -(-remaining_count // steps_left))
-            reveal_scores = conf.masked_fill(~remaining, -1.0).view(-1)
-            reveal_idx = torch.topk(reveal_scores, reveal_count).indices
+            if reveal_strategy == "confidence":
+                reveal_scores = conf.masked_fill(~remaining, -1.0).view(-1)
+                reveal_idx = torch.topk(reveal_scores, reveal_count).indices
+            else:
+                reveal_idx = remaining.view(-1).nonzero(as_tuple=False).flatten()[:reveal_count]
             flat_ids[reveal_idx] = flat_sampled[reveal_idx]
 
     return ids[0].tolist()
