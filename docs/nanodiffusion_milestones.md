@@ -275,6 +275,19 @@ Known evidence:
   `1.840987`, slightly better than the uniform mask-sampling pilot. Fixed-prompt
   samples still failed with prompt-word loops and non-code continuations. Report:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_suffix_antithetic_20s-20260521-231351.md`.
+- A fully masked continuation-span objective `MASK_PATTERN=suffix_span_all` was
+  added to make the block-wise training target explicit instead of approximating
+  it with `suffix_span` and `MASK_EPS=0.999`. It keeps a random prefix visible,
+  masks the whole target span, force-masks future suffix tokens without loss,
+  and trains only the target span. The 1k d20 seq-1024 pilot
+  `diffusion_a100_d20_s1024_1k_suffix_span_all16_20s` used
+  `SPAN_TOKENS=16`, `LOSS_NORMALIZATION=eligible`, and
+  `MASK_LOSS_REWEIGHT=0`. It reached step 1000 in 32.44 minutes with validation
+  loss `10.400656 -> 7.141670 -> 6.765229` and final eval loss `6.730374`.
+  Fixed-prompt samples remained dominated by repeated prompt-adjacent words and
+  non-code continuations, so this exact block-aligned objective is also
+  rejected. Report:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_suffix_span_all16_20s-20260522-000814.md`.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -481,7 +494,7 @@ did not clear the sample gate, so the next useful Milestone 3 candidate should
 change the objective rather than only adding data, steps, or shorter sequences.
 The suffix/span objective variants, fully masked suffix training, capped
 masking, block-aligned training, CFG sampling, fixed reveal scheduling,
-mask-logit exclusion, antithetic mask sampling, a d16 model-size pilot, and
-50-shard data expansion have not cleared the sample gate. More of the same
-recipe should be avoided; the next candidate needs a broader change than
-another scalar sweep.
+mask-logit exclusion, antithetic mask sampling, exact fully masked continuation
+span training, a d16 model-size pilot, and 50-shard data expansion have not
+cleared the sample gate. More of the same recipe should be avoided; the next
+candidate needs a broader change than another scalar sweep.

@@ -473,6 +473,28 @@ but fixed-prompt samples still failed with prompt-word loops and non-code
 continuations. Keep antithetic sampling as a variance-reduction option, not as a
 selected baseline.
 
+An exact fully masked continuation-span pilot was tested to align training with
+block-wise sampling without relying on `MASK_EPS=0.999` as an approximation:
+
+```text
+model_tag: diffusion_a100_d20_s1024_1k_suffix_span_all16_20s
+data_shards: 20
+max_seq_len: 1024
+mask_pattern: suffix_span_all
+span_tokens: 16
+loss_normalization: eligible
+mask_loss_reweight: 0
+trained_to: step 1000
+training_time: 32.44m
+validation_loss_curve: 10.400656 -> 7.141670 -> 6.765229
+final_eval_loss: 6.730374
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_suffix_span_all16_20s-20260522-000814.md
+```
+
+This objective is explicit and better aligned with block-wise sampling, but the
+pilot still failed the fixed-prompt gate with prompt-adjacent word loops and
+non-code continuations. Do not continue it to 5k without a broader change.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:
