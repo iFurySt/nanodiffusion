@@ -125,6 +125,20 @@ Or run the tiny end-to-end CPU script:
 bash runs/diffusion_runcpu.sh
 ```
 
+Verified CPU smoke, 2026-05-22:
+
+```bash
+rm -rf /tmp/nanodiffusion-cpu-smoke
+PYTHONPATH=. NANODIFFUSION_BASE_DIR=/tmp/nanodiffusion-cpu-smoke \
+  uv run bash runs/diffusion_runcpu.sh
+```
+
+This run downloaded the two tiny data shards, trained the tokenizer, trained the
+CPU diffusion checkpoint to step 20, saved
+`/tmp/nanodiffusion-cpu-smoke/diffusion_checkpoints/diffusion_cpu/model_000020.pt`,
+and completed a sample pass. The best validation diffusion loss in the smoke
+run was `6.038887`.
+
 8xGPU reference entrypoint for the first reproducible A100/H100 baseline:
 
 ```bash

@@ -73,6 +73,13 @@ Already implemented:
 Known evidence:
 
 - Local diffusion tests pass.
+- A clean CPU smoke completed on 2026-05-22 with:
+  `PYTHONPATH=. NANODIFFUSION_BASE_DIR=/tmp/nanodiffusion-cpu-smoke uv run bash runs/diffusion_runcpu.sh`.
+  It downloaded the two tiny data shards, trained the tokenizer, trained a tiny
+  CPU checkpoint to step 20, saved
+  `/tmp/nanodiffusion-cpu-smoke/diffusion_checkpoints/diffusion_cpu/model_000020.pt`,
+  reached best validation diffusion loss `6.038887`, and completed a sample
+  pass.
 - A100 smoke runs pass.
 - A 520M parameter, 8xA100, 500-step real-data run completed from 2 ClimbMix
   shards.
