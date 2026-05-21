@@ -405,6 +405,13 @@ Known evidence:
   the France prompt drifted into Germany/road/supply text and the Fibonacci
   prompt stayed symbolic/non-code. Report:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_score_entropy_sigma_layer_full_20s-sedd-hard-sampler-20260522-054824.md`.
+- Strict left-to-right single-token reveal was checked sample-only on
+  `diffusion_a100_d20_s1024_1k_full_antithetic_20s`,
+  `diffusion_a100_d20_s1024_1k_score_entropy_sigma_layer_full_20s`, and
+  `diffusion_a100_d20_s1024_5k_suffix_20s`. It made some France continuations
+  more grammatical but still looped on "capital of France" and did not produce
+  Fibonacci code. This suggests parallel confidence reveal is not the primary
+  bottleneck.
 - `DIFFUSION_SIGMA_LAYER_CONDITIONING=1` is available as the next denoiser
   conditioning pilot. It injects a separate learned scalar `sigma` projection
   before every transformer block, which is closer to SEDD's per-block
