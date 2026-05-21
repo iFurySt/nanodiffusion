@@ -355,8 +355,18 @@ Known evidence:
   `--score-parameterization=sigma_scaled` option for a closer SEDD-style loss
   parameterization. It subtracts the absorbing-noise scale
   `log(expm1(sigma))` and the non-mask vocabulary prior from score logits
-  before the score-entropy terms, while leaving `raw` as the default. This is
-  the next 1k A100 pilot candidate before considering longer training.
+  before the score-entropy terms, while leaving `raw` as the default. A 1k d20
+  seq-1024 pilot
+  `diffusion_a100_d20_s1024_1k_score_entropy_scaled_full_20s` used
+  `LOSS_OBJECTIVE=score_entropy`, `SCORE_PARAMETERIZATION=sigma_scaled`,
+  `MASK_MAX_PROB=0.999`, and `MASK_SAMPLING=antithetic`. The scaling fixed the
+  raw objective's huge initial loss scale and reached validation loss
+  `10.423655 -> 4.129064 -> 3.590117`, with final eval loss `3.636929`, after
+  33.09 minutes. Fixed-prompt samples still failed: the France prompt produced
+  repeated "capital of ..." variants instead of Paris, and the code prompt
+  produced number/topic lists rather than executable Fibonacci code. This is a
+  stability improvement, not a selected baseline. Report:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_score_entropy_scaled_full_20s-20260522-033603.md`.
 
 ## Milestone 1: Reproducible Base Speedrun
 

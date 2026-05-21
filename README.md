@@ -600,6 +600,24 @@ sampler or a better parameterization. `SCORE_PARAMETERIZATION=sigma_scaled`
 adds the SEDD-style `sigma` scale correction to the loss path for the next pilot
 while preserving `raw` as the default.
 
+The sigma-scaled 1k pilot fixed the raw objective's huge initial loss scale, but
+still did not clear the sample gate:
+
+```text
+model_tag: diffusion_a100_d20_s1024_1k_score_entropy_scaled_full_20s
+loss_objective: score_entropy
+score_parameterization: sigma_scaled
+validation_loss_curve: 10.423655 -> 4.129064 -> 3.590117
+final_eval_loss: 3.636929
+training_time: 33.09m
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_score_entropy_scaled_full_20s-20260522-033603.md
+```
+
+Fixed-prompt samples remained repetitive: the France prompt produced "capital of
+..." variants instead of "Paris", and `def fibonacci(n):` produced number or
+topic lists rather than executable code. This makes sigma scaling a useful
+stability improvement, not a quality baseline.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:
