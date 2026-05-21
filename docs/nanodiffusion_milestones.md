@@ -392,6 +392,13 @@ Known evidence:
   iterative confidence-reveal sampler remains the default. Next validation should
   be sample-only on existing score-entropy checkpoints before any further
   training run.
+- A sample-only report on
+  `diffusion_a100_d20_s1024_1k_score_entropy_sigma_cond_full_20s` with the
+  `sedd_analytic` recipe did not clear the sample gate. It improved some sentence
+  continuity on prose prompts, but the France prompt drifted into unrelated
+  road/supply text instead of Paris and the Fibonacci prompt remained non-code.
+  Keep this as a diagnostic sampler rather than the selected default. Report:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_score_entropy_sigma_cond_full_20s-sedd-sampler-20260522-050123.md`.
 
 ## Milestone 1: Reproducible Base Speedrun
 

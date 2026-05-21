@@ -661,6 +661,19 @@ score-entropy outputs as score ratios and applies absorbing reverse transitions,
 so it is mainly for score-entropy checkpoints rather than the cross-entropy
 baselines.
 
+A sample-only report on the sigma-conditioned score-entropy checkpoint did not
+clear the gate:
+
+```text
+model_tag: diffusion_a100_d20_s1024_1k_score_entropy_sigma_cond_full_20s
+sampler_recipe: sedd_analytic
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_score_entropy_sigma_cond_full_20s-sedd-sampler-20260522-050123.md
+```
+
+The analytic sampler improved some sentence continuity, but the France prompt
+still drifted into unrelated road/supply text and the Fibonacci prompt remained
+non-code. Keep it as a diagnostic sampler, not the selected default.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:
