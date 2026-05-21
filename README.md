@@ -571,6 +571,28 @@ Spot checks on the suffix and corrected full checkpoints did not clear the
 sample gate. Random remasking sometimes nudges factual prompts toward
 Paris-like continuations, but it adds noise and does not fix code prompts.
 
+A SEDD-inspired absorbing score-entropy objective is available:
+
+```bash
+LOSS_OBJECTIVE=score_entropy MASK_MAX_PROB=0.999 MASK_SAMPLING=antithetic \
+  bash runs/diffusion_speedrun_a100.sh
+```
+
+A 1k d20 seq-1024 pilot ran stably but did not clear the sample gate:
+
+```text
+model_tag: diffusion_a100_d20_s1024_1k_score_entropy_full_20s
+loss_objective: score_entropy
+validation_loss_curve: 164823.796875 -> 6.875257 -> 4.694990
+final_eval_loss: 4.742321
+training_time: 32.78m
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_score_entropy_full_20s-20260522-024848.md
+```
+
+Treat this as infrastructure for stronger discrete-diffusion experiments, not as
+a selected baseline. The direct score-entropy objective still needs a matching
+sampler or parameterization change.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:

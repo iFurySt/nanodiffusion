@@ -336,6 +336,21 @@ Known evidence:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_5k_suffix_20s-random-remask-samples-20260522.md`
   and
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_full_antithetic_20s-random-remask-samples-20260522.md`.
+- A SEDD-inspired absorbing score-entropy objective is available via
+  `--loss-objective=score_entropy`. It interprets model outputs as log score
+  ratios for clean non-mask tokens and keeps the existing cross-entropy
+  objective as the default. A 1k d20 seq-1024 full-objective pilot
+  `diffusion_a100_d20_s1024_1k_score_entropy_full_20s` used
+  `LOSS_OBJECTIVE=score_entropy`, `MASK_MAX_PROB=0.999`, and
+  `MASK_SAMPLING=antithetic`. The objective was numerically stable after an
+  initially very large scale and reached validation loss
+  `164823.796875 -> 6.875257 -> 4.694990`, with final eval loss `4.742321`,
+  after 32.78 minutes. Fixed-prompt samples still failed: factual prompts
+  drifted into repeated country/topic loops and the code prompt degenerated into
+  symbols or fragments. This direct score-entropy integration is useful
+  infrastructure but not a selected baseline without a matching sampler or
+  parameterization change. Report:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_score_entropy_full_20s-20260522-024848.md`.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -544,9 +559,9 @@ The suffix/span objective variants, fully masked suffix training, capped
 masking, block-aligned training, CFG sampling, fixed reveal scheduling,
 mask-logit exclusion, antithetic mask sampling, exact fully masked continuation
 span training, mixed continuation-span training, corrected full-objective
-training, random remasking, a d16 model-size pilot, and 50-shard data expansion
-have not cleared the sample gate. More of the same recipe should be avoided;
-the next candidate needs a broader change than another scalar sweep. The AR
-control makes this more specific: the next useful work should focus on a
-stronger discrete diffusion formulation or sampler rather than more
-data/step/model-size sweeps inside the current masked-denoising family.
+training, random remasking, direct score-entropy training, a d16 model-size
+pilot, and 50-shard data expansion have not cleared the sample gate. More of
+the same recipe should be avoided; the next candidate needs a broader change
+than another scalar sweep. The AR control makes this more specific: the next
+useful work should focus on a stronger discrete diffusion sampler/parameterizer,
+not more data/step/model-size sweeps inside the current masked-denoising family.
