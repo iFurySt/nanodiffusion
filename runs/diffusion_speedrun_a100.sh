@@ -37,6 +37,7 @@ LOSS_OBJECTIVE="${LOSS_OBJECTIVE:-cross_entropy}"
 SCORE_PARAMETERIZATION="${SCORE_PARAMETERIZATION:-raw}"
 DIFFUSION_SIGMA_CONDITIONING="${DIFFUSION_SIGMA_CONDITIONING:-0}"
 DIFFUSION_SIGMA_LAYER_CONDITIONING="${DIFFUSION_SIGMA_LAYER_CONDITIONING:-0}"
+DIFFUSION_SIGMA_ADALN_CONDITIONING="${DIFFUSION_SIGMA_ADALN_CONDITIONING:-0}"
 EVAL_EVERY="${EVAL_EVERY:-500}"
 EVAL_BATCHES="${EVAL_BATCHES:-20}"
 SAVE_EVERY="${SAVE_EVERY:-1000}"
@@ -86,6 +87,9 @@ fi
 if [ "$DIFFUSION_SIGMA_LAYER_CONDITIONING" = "1" ]; then
   torch_args+=(--diffusion-sigma-layer-conditioning)
 fi
+if [ "$DIFFUSION_SIGMA_ADALN_CONDITIONING" = "1" ]; then
+  torch_args+=(--diffusion-sigma-adaln-conditioning)
+fi
 
 eval_args=(--mask-eps="$MASK_EPS")
 eval_args+=(--mask-max-prob="$MASK_MAX_PROB")
@@ -132,6 +136,7 @@ append_report "- loss_objective: \`$LOSS_OBJECTIVE\`"
 append_report "- score_parameterization: \`$SCORE_PARAMETERIZATION\`"
 append_report "- diffusion_sigma_conditioning: \`$DIFFUSION_SIGMA_CONDITIONING\`"
 append_report "- diffusion_sigma_layer_conditioning: \`$DIFFUSION_SIGMA_LAYER_CONDITIONING\`"
+append_report "- diffusion_sigma_adaln_conditioning: \`$DIFFUSION_SIGMA_ADALN_CONDITIONING\`"
 append_report "- sample_remask_low_confidence: \`$SAMPLE_REMASK_LOW_CONFIDENCE\`"
 append_report "- sample_remask_strategy: \`$SAMPLE_REMASK_STRATEGY\`"
 append_report "- sample_sampler: \`$SAMPLE_SAMPLER\`"

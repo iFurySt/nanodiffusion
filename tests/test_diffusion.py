@@ -28,6 +28,7 @@ def build_tiny_bidirectional_model(
     sequence_len=8,
     diffusion_sigma_conditioning=False,
     diffusion_sigma_layer_conditioning=False,
+    diffusion_sigma_adaln_conditioning=False,
 ):
     config = GPTConfig(
         sequence_len=sequence_len,
@@ -40,6 +41,7 @@ def build_tiny_bidirectional_model(
         attention_mode="bidirectional",
         diffusion_sigma_conditioning=diffusion_sigma_conditioning,
         diffusion_sigma_layer_conditioning=diffusion_sigma_layer_conditioning,
+        diffusion_sigma_adaln_conditioning=diffusion_sigma_adaln_conditioning,
     )
     model = GPT(config, pad_vocab_size_to=1)
     model.init_weights()
@@ -547,6 +549,28 @@ def test_diffusion_loss_can_train_layer_sigma_conditioned_score_entropy_objectiv
     assert loss.isfinite()
     assert metrics["mask_fraction"] > 0
     assert model.diffusion_sigma_layer_projs[0].weight.grad is not None
+
+
+def test_diffusion_loss_can_train_adaln_sigma_conditioned_score_entropy_objective():
+    model = build_tiny_bidirectional_model(diffusion_sigma_adaln_conditioning=True)
+    clean = torch.randint(0, 16, (2, 8), dtype=torch.long)
+    generator = torch.Generator(device=clean.device).manual_seed(123)
+
+    loss, metrics = masked_diffusion_loss(
+        model,
+        clean,
+        mask_token_id=16,
+        eps=0.1,
+        max_mask_prob=0.9,
+        generator=generator,
+        loss_objective="score_entropy",
+        score_parameterization="sigma_scaled",
+    )
+    loss.backward()
+
+    assert loss.isfinite()
+    assert metrics["mask_fraction"] > 0
+    assert model.diffusion_sigma_adaln_projs[0].weight.grad is not None
 
 
 def test_diffusion_loss_can_normalize_by_eligible_tokens():

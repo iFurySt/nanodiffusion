@@ -428,6 +428,12 @@ Known evidence:
   shallow input or per-block scalar sigma injection as sufficient at this scale.
   Report:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_score_entropy_sigma_layer_full_20s-20260522-050812.md`.
+- `DIFFUSION_SIGMA_ADALN_CONDITIONING=1` is available as the next closer SEDD
+  conditioning pilot. It uses sigma-derived shift, scale, and gate terms inside
+  each attention/MLP block, zero-initialized so the default block behavior is
+  unchanged at initialization. Use it with `LOSS_OBJECTIVE=score_entropy`,
+  `SCORE_PARAMETERIZATION=sigma_scaled`, `MASK_MAX_PROB=0.999`, and
+  `MASK_SAMPLING=antithetic` for the next 1k A100 run.
 
 ## Milestone 1: Reproducible Base Speedrun
 

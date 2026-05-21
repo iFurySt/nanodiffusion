@@ -42,6 +42,7 @@ class GPTConfig:
     # Optional absorbing diffusion noise conditioning. Causal GPT checkpoints keep this disabled.
     diffusion_sigma_conditioning: bool = False
     diffusion_sigma_layer_conditioning: bool = False
+    diffusion_sigma_adaln_conditioning: bool = False
 
 
 def norm(x):
@@ -153,9 +154,23 @@ class Block(nn.Module):
         self.attn = CausalSelfAttention(config, layer_idx)
         self.mlp = MLP(config)
 
-    def forward(self, x, ve, cos_sin, window_size, kv_cache):
-        x = x + self.attn(norm(x), ve, cos_sin, window_size, kv_cache)
-        x = x + self.mlp(norm(x))
+    def forward(self, x, ve, cos_sin, window_size, kv_cache, sigma_mod=None):
+        attn_in = norm(x)
+        if sigma_mod is not None:
+            shift_attn, scale_attn, gate_attn, shift_mlp, scale_mlp, gate_mlp = sigma_mod
+            attn_in = attn_in * (1 + scale_attn) + shift_attn
+        attn_out = self.attn(attn_in, ve, cos_sin, window_size, kv_cache)
+        if sigma_mod is not None:
+            attn_out = attn_out * (1 + gate_attn)
+        x = x + attn_out
+
+        mlp_in = norm(x)
+        if sigma_mod is not None:
+            mlp_in = mlp_in * (1 + scale_mlp) + shift_mlp
+        mlp_out = self.mlp(mlp_in)
+        if sigma_mod is not None:
+            mlp_out = mlp_out * (1 + gate_mlp)
+        x = x + mlp_out
         return x
 
 
@@ -184,6 +199,9 @@ class GPT(nn.Module):
         self.diffusion_sigma_layer_projs = nn.ModuleList(
             [Linear(1, config.n_embd, bias=False) for _ in range(config.n_layer)]
         ) if config.diffusion_sigma_layer_conditioning else None
+        self.diffusion_sigma_adaln_projs = nn.ModuleList(
+            [Linear(1, 6 * config.n_embd, bias=False) for _ in range(config.n_layer)]
+        ) if config.diffusion_sigma_adaln_conditioning else None
         self.lm_head = Linear(config.n_embd, padded_vocab_size, bias=False)
         # Per-layer learnable scalars (inspired by modded-nanogpt)
         # resid_lambdas: scales the residual stream at each layer (init 1.0 = neutral)
@@ -233,6 +251,9 @@ class GPT(nn.Module):
             torch.nn.init.zeros_(self.diffusion_sigma_proj.weight)
         if self.diffusion_sigma_layer_projs is not None:
             for proj in self.diffusion_sigma_layer_projs:
+                torch.nn.init.zeros_(proj.weight)
+        if self.diffusion_sigma_adaln_projs is not None:
+            for proj in self.diffusion_sigma_adaln_projs:
                 torch.nn.init.zeros_(proj.weight)
         torch.nn.init.normal_(self.lm_head.weight, mean=0.0, std=0.001)
 
@@ -445,6 +466,8 @@ class GPT(nn.Module):
             params.extend(self.diffusion_sigma_proj.parameters())
         if self.diffusion_sigma_layer_projs is not None:
             params.extend(self.diffusion_sigma_layer_projs.parameters())
+        if self.diffusion_sigma_adaln_projs is not None:
+            params.extend(self.diffusion_sigma_adaln_projs.parameters())
         return list(params)
 
     def _sigma_conditioning_numel(self):
@@ -466,7 +489,7 @@ class GPT(nn.Module):
         x = x.to(COMPUTE_DTYPE) # ensure activations are in compute dtype (no-op usually, but active for fp16 code path)
         x = norm(x)
         sigma_feature = None
-        if self.diffusion_sigma_proj is not None or self.diffusion_sigma_layer_projs is not None:
+        if self.diffusion_sigma_proj is not None or self.diffusion_sigma_layer_projs is not None or self.diffusion_sigma_adaln_projs is not None:
             assert diffusion_sigma is not None, "diffusion_sigma is required when diffusion_sigma_conditioning=True"
             diffusion_sigma = diffusion_sigma.to(device=idx.device, dtype=torch.float32).view(B, 1)
             sigma_feature = torch.log1p(diffusion_sigma).to(x.dtype).view(B, 1, 1)
@@ -502,7 +525,10 @@ class GPT(nn.Module):
                 x = x + self.diffusion_sigma_layer_projs[i](sigma_feature).view(B, 1, -1)
             x = self.resid_lambdas[i] * x + self.x0_lambdas[i] * x0
             ve = self.value_embeds[str(i)](idx).to(x.dtype) if str(i) in self.value_embeds else None
-            x = block(x, ve, cos_sin, self.window_sizes[i], kv_cache)
+            sigma_mod = None
+            if self.diffusion_sigma_adaln_projs is not None:
+                sigma_mod = self.diffusion_sigma_adaln_projs[i](sigma_feature).view(B, 1, 6 * self.config.n_embd).chunk(6, dim=-1)
+            x = block(x, ve, cos_sin, self.window_sizes[i], kv_cache, sigma_mod=sigma_mod)
             if i == backout_layer:
                 x_backout = x
         # Subtract mid-layer residual to remove low-level features before logit projection

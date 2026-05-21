@@ -89,6 +89,7 @@ def parse_args():
     parser.add_argument("--score-parameterization", type=str, default="raw", choices=["raw", "sigma_scaled"])
     parser.add_argument("--diffusion-sigma-conditioning", action="store_true")
     parser.add_argument("--diffusion-sigma-layer-conditioning", action="store_true")
+    parser.add_argument("--diffusion-sigma-adaln-conditioning", action="store_true")
     parser.add_argument("--resume-from-step", type=int, default=-1)
     # Evaluation / output
     parser.add_argument("--eval-every", type=int, default=250)
@@ -113,6 +114,7 @@ def build_model_meta(args, vocab_size):
         attention_mode="bidirectional",
         diffusion_sigma_conditioning=args.diffusion_sigma_conditioning,
         diffusion_sigma_layer_conditioning=args.diffusion_sigma_layer_conditioning,
+        diffusion_sigma_adaln_conditioning=args.diffusion_sigma_adaln_conditioning,
     )
     with torch.device("meta"):
         model = GPT(config)
@@ -401,6 +403,7 @@ def main():
             "Score parameterization": args.score_parameterization,
             "Diffusion sigma conditioning": args.diffusion_sigma_conditioning,
             "Diffusion sigma layer conditioning": args.diffusion_sigma_layer_conditioning,
+            "Diffusion sigma AdaLN conditioning": args.diffusion_sigma_adaln_conditioning,
         },
         {
             "Minimum validation diffusion loss": min_val_loss,

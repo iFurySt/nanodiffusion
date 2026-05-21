@@ -192,6 +192,7 @@ LOSS_OBJECTIVE=score_entropy MASK_MAX_PROB=0.999 MASK_SAMPLING=antithetic bash r
 LOSS_OBJECTIVE=score_entropy SCORE_PARAMETERIZATION=sigma_scaled MASK_MAX_PROB=0.999 MASK_SAMPLING=antithetic bash runs/diffusion_speedrun_a100.sh
 DIFFUSION_SIGMA_CONDITIONING=1 LOSS_OBJECTIVE=score_entropy SCORE_PARAMETERIZATION=sigma_scaled MASK_MAX_PROB=0.999 MASK_SAMPLING=antithetic bash runs/diffusion_speedrun_a100.sh
 DIFFUSION_SIGMA_LAYER_CONDITIONING=1 LOSS_OBJECTIVE=score_entropy SCORE_PARAMETERIZATION=sigma_scaled MASK_MAX_PROB=0.999 MASK_SAMPLING=antithetic bash runs/diffusion_speedrun_a100.sh
+DIFFUSION_SIGMA_ADALN_CONDITIONING=1 LOSS_OBJECTIVE=score_entropy SCORE_PARAMETERIZATION=sigma_scaled MASK_MAX_PROB=0.999 MASK_SAMPLING=antithetic bash runs/diffusion_speedrun_a100.sh
 ```
 
 The defaults keep the original simple LLaDA/MDLM-style objective: sampled mask
@@ -710,6 +711,11 @@ report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_score_entropy
 The final France sample still looped on "capital of ..." and the Fibonacci
 prompt stayed non-code. This rules out shallow input or per-block scalar sigma
 injection as sufficient at this scale.
+
+The next conditioning pilot should use
+`DIFFUSION_SIGMA_ADALN_CONDITIONING=1`, which modulates attention and MLP norms
+inside each block with sigma-derived shift, scale, and gate terms. The modulation
+is zero-initialized so the default block behavior is unchanged at initialization.
 
 ## Evaluate And Sample
 
