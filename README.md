@@ -823,6 +823,23 @@ AR initialization improves the loss curve slightly, but it still does not clear
 the fixed-prompt quality gate. Samples repeat phrase templates, drift factually,
 and fail the Fibonacci code prompt, so SFT remains blocked.
 
+Switching the AR-initialized run back to the CE objective gives a small loss
+improvement but still fails the same sample gate:
+
+```text
+model_tag: diffusion_a100_d20_s1024_1k_arinit_ce_sigma_cond_full_20s
+source_checkpoint: ar_d20_s1024_1k_20s_control step 1000
+validation_loss_curve: 7.703650 -> 3.732457 -> 3.372206
+final_eval_loss: 3.417173
+runtime: 32.59m
+peak_memory: 37060 MiB
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_arinit_ce_sigma_cond_full_20s-20260522-082828.md
+```
+
+This rules out plain AR-initialized full-mask CE fine-tuning as sufficient. The
+next useful baseline attempt should preserve continuation behavior more directly
+instead of repeating full random masking.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:

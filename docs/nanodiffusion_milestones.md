@@ -520,6 +520,17 @@ Known evidence:
   and `def fibonacci(n):` does not produce usable code. AR initialization helps
   the loss curve but is not sufficient by itself. Report:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_arinit_score_entropy_sigma_cond_full_20s-20260522-074332.md`.
+- The AR-initialized cross-entropy control
+  `diffusion_a100_d20_s1024_1k_arinit_ce_sigma_cond_full_20s` used the same
+  checkpoint and full random masking but switched back to the CE objective. It
+  completed in 32.59 minutes with about 265k tokens/sec and the same 37,060 MiB
+  peak memory. The validation curve was `7.703650 -> 3.732457 -> 3.372206`,
+  with final eval `3.417173`. This is a small loss improvement over the
+  AR-initialized score-entropy run, but it still fails the fixed-prompt gate:
+  the France sample repeats "point of view" phrasing, meaning-of-life samples
+  loop through definitions, and Fibonacci samples are not code. This rules out
+  plain AR-initialized full-mask CE fine-tuning as sufficient. Report:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_arinit_ce_sigma_cond_full_20s-20260522-082828.md`.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -731,13 +742,14 @@ span training, mixed continuation-span training, corrected full-objective
 training, random remasking, direct score-entropy training, a d16 model-size
 pilot, 50-shard data expansion, SEDD analytic sampling, scalar sigma
 conditioning through input, per-layer residual injection, AdaLN, sinusoidal
-sigma conditioning, and AR-initialized score-entropy fine-tuning have not cleared
-the sample gate. More of the same recipe should be avoided; the next candidate
-needs a broader change than another scalar/sinusoidal sweep or another plain
-AR-initialized score-entropy run. The AR control makes this more specific: the
-same data/model can learn coherent causal language modeling, but the current
-diffusion objective and sampler still destroy continuation quality, so the next
-useful work should preserve AR behavior more directly, for example by testing an
-AR-initialized cross-entropy/full-mask objective, a continuation-style diffusion
-fine-tune, or a lower-LR/frozen-prefix adaptation instead of another
-from-scratch diffusion variant.
+sigma conditioning, AR-initialized score-entropy fine-tuning, and
+AR-initialized full-mask CE fine-tuning have not cleared the sample gate. More
+of the same recipe should be avoided; the next candidate needs a broader change
+than another scalar/sinusoidal sweep or another plain AR-initialized full-mask
+run. The AR control makes this more specific: the same data/model can learn
+coherent causal language modeling, but the current diffusion objective and
+sampler still destroy continuation quality, so the next useful work should
+preserve AR behavior more directly, for example by testing a continuation-style
+AR-initialized diffusion fine-tune, a lower-LR/frozen-prefix adaptation, or a
+sampler/training setup that reveals tokens left-to-right during continuation
+instead of another from-scratch diffusion variant.
