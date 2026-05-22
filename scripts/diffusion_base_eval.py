@@ -40,7 +40,7 @@ def parse_args():
     parser.add_argument("--mask-eps", type=float, default=1e-3)
     parser.add_argument("--mask-max-prob", type=float, default=1.0)
     parser.add_argument("--no-mask-loss-reweight", action="store_true")
-    parser.add_argument("--mask-pattern", type=str, default="full", choices=["full", "suffix", "suffix_all", "suffix_span", "suffix_span_all", "suffix_span_mixed"])
+    parser.add_argument("--mask-pattern", type=str, default="full", choices=["full", "suffix", "suffix_all", "suffix_span", "suffix_span_all", "suffix_span_mixed", "prefix_next"])
     parser.add_argument("--prefix-min-frac", type=float, default=0.25)
     parser.add_argument("--prefix-max-frac", type=float, default=0.75)
     parser.add_argument("--span-tokens", type=int, default=128)
