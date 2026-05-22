@@ -508,6 +508,18 @@ Known evidence:
   initialization smoke, but it validates the load path and justifies a full 1k
   8xA100 AR-initialized pilot. Report:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diag_d20_s1024_50_arinit_score_entropy_sigma_scalar_input-20260522-073851.md`.
+- The full 8xA100 AR-initialized pilot
+  `diffusion_a100_d20_s1024_1k_arinit_score_entropy_sigma_cond_full_20s`
+  loaded the same `ar_d20_s1024_1k_20s_control` step-1000 checkpoint, then ran
+  1k diffusion score-entropy steps on 20 shards with scalar sigma input
+  conditioning. It optimized slightly better than the comparable scratch
+  diffusion runs (`17.314482 -> 3.832415 -> 3.416431`, final eval
+  `3.461712`) in 33.06 minutes at about 261k tokens/sec and 37,060 MiB peak GPU
+  memory. The fixed-prompt samples still failed the quality gate: "France"
+  loops around "actual capital", "meaning of life" repeats phrase templates,
+  and `def fibonacci(n):` does not produce usable code. AR initialization helps
+  the loss curve but is not sufficient by itself. Report:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_arinit_score_entropy_sigma_cond_full_20s-20260522-074332.md`.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -718,10 +730,14 @@ mask-logit exclusion, antithetic mask sampling, exact fully masked continuation
 span training, mixed continuation-span training, corrected full-objective
 training, random remasking, direct score-entropy training, a d16 model-size
 pilot, 50-shard data expansion, SEDD analytic sampling, scalar sigma
-conditioning through input, per-layer residual injection, and AdaLN, and
-sinusoidal sigma conditioning have not cleared the sample gate. More of the same
-recipe should be avoided; the next candidate needs a broader change than another
-scalar or sinusoidal sweep. The AR control makes this more specific: the next
-useful work should test diffusion fine-tuning initialized from the coherent AR
-control checkpoint before spending more runs inside the current
-diffusion-from-scratch family.
+conditioning through input, per-layer residual injection, AdaLN, sinusoidal
+sigma conditioning, and AR-initialized score-entropy fine-tuning have not cleared
+the sample gate. More of the same recipe should be avoided; the next candidate
+needs a broader change than another scalar/sinusoidal sweep or another plain
+AR-initialized score-entropy run. The AR control makes this more specific: the
+same data/model can learn coherent causal language modeling, but the current
+diffusion objective and sampler still destroy continuation quality, so the next
+useful work should preserve AR behavior more directly, for example by testing an
+AR-initialized cross-entropy/full-mask objective, a continuation-style diffusion
+fine-tune, or a lower-LR/frozen-prefix adaptation instead of another
+from-scratch diffusion variant.

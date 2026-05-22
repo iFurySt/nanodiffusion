@@ -807,6 +807,22 @@ report: $NANODIFFUSION_BASE_DIR/report/diag_d20_s1024_50_arinit_score_entropy_si
 Samples still looped, but the load path and optimization smoke are valid enough
 for a full 1k 8xA100 AR-initialized pilot.
 
+The full 8xA100 pilot also completed:
+
+```text
+model_tag: diffusion_a100_d20_s1024_1k_arinit_score_entropy_sigma_cond_full_20s
+source_checkpoint: ar_d20_s1024_1k_20s_control step 1000
+validation_loss_curve: 17.314482 -> 3.832415 -> 3.416431
+final_eval_loss: 3.461712
+runtime: 33.06m
+peak_memory: 37060 MiB
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_arinit_score_entropy_sigma_cond_full_20s-20260522-074332.md
+```
+
+AR initialization improves the loss curve slightly, but it still does not clear
+the fixed-prompt quality gate. Samples repeat phrase templates, drift factually,
+and fail the Fibonacci code prompt, so SFT remains blocked.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:
