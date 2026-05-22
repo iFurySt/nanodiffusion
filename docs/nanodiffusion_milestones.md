@@ -542,6 +542,22 @@ Known evidence:
   capital", "life life", and "accacc" for Fibonacci. It is worse than full-mask
   AR-initialized CE for the fixed-prompt gate. Report:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_arinit_ce_suffix_span_mixed64_20s-20260522-090734.md`.
+- The A100 speedrun script now exposes optimizer learning rates via
+  `EMBEDDING_LR`, `UNEMBEDDING_LR`, `MATRIX_LR`, `SCALAR_LR`, and
+  `WEIGHT_DECAY`, and records those values in each report. This made it possible
+  to test a low-LR, frozen-transformer-matrix AR-initialized pilot without
+  hand-editing the command line.
+- The frozen-matrix AR-initialized pilot
+  `diffusion_a100_d20_s1024_1k_arinit_ce_sigma_cond_freezematrix_lr10x_full_20s`
+  used full-mask CE, scalar sigma conditioning, `MATRIX_LR=0`, and 10x lower
+  embedding/head/scalar LRs (`0.03`, `0.0008`, `0.05`). It completed in 32.57
+  minutes at the same memory scale, with validation
+  `7.703650 -> 4.447061 -> 4.312255` and final eval `4.349539`. It did not
+  preserve AR continuation behavior: France loops around "rance/French",
+  meaning-of-life repeats "life/meaning", and Fibonacci remains bracket or
+  "acc" loops. Freezing transformer matrices plus lower LR is therefore not
+  sufficient. Report:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_arinit_ce_sigma_cond_freezematrix_lr10x_full_20s-20260522-094919.md`.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -755,14 +771,14 @@ pilot, 50-shard data expansion, SEDD analytic sampling, scalar sigma
 conditioning through input, per-layer residual injection, AdaLN, sinusoidal
 sigma conditioning, AR-initialized score-entropy fine-tuning,
 AR-initialized full-mask CE fine-tuning, and AR-initialized mixed
-continuation-span fine-tuning have not cleared the sample gate. More of the same
-recipe should be avoided; the next candidate needs a broader change than another
-scalar/sinusoidal sweep or another plain AR-initialized full-mask/continuation
-run. The AR control makes this more specific: the same data/model can learn
-coherent causal language modeling, but the current diffusion objective and
-sampler still destroy continuation quality. The next useful work should change
-the bridge between AR and diffusion more fundamentally, for example by lowering
-LR and freezing most initialized transformer weights for an adapter-style
-diffusion head warmup, distilling from the AR next-token distribution, or
+continuation-span fine-tuning, and frozen-matrix/low-LR AR-initialized
+fine-tuning have not cleared the sample gate. More of the same recipe should be
+avoided; the next candidate needs a broader change than another
+scalar/sinusoidal sweep, another plain AR-initialized full-mask/continuation
+run, or a simple LR/freeze schedule. The AR control makes this more specific:
+the same data/model can learn coherent causal language modeling, but the current
+diffusion objective and sampler still destroy continuation quality. The next
+useful work should change the bridge between AR and diffusion more fundamentally,
+for example by distilling from the AR next-token distribution or by
 training/evaluating a sampler that reveals tokens strictly left-to-right with an
 objective matched to that schedule.

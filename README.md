@@ -858,6 +858,33 @@ It regressed into stronger token and word-root loops, so the next useful attempt
 needs a more fundamental bridge from the AR checkpoint than another masking
 pattern sweep.
 
+The A100 speedrun script exposes optimizer LR knobs for those bridge
+experiments:
+
+```bash
+EMBEDDING_LR=0.03 UNEMBEDDING_LR=0.0008 MATRIX_LR=0 SCALAR_LR=0.05 \
+  bash runs/diffusion_speedrun_a100.sh
+```
+
+The frozen-matrix, low-LR AR-initialized pilot also failed the sample gate:
+
+```text
+model_tag: diffusion_a100_d20_s1024_1k_arinit_ce_sigma_cond_freezematrix_lr10x_full_20s
+source_checkpoint: ar_d20_s1024_1k_20s_control step 1000
+matrix_lr: 0
+embedding_lr: 0.03
+unembedding_lr: 0.0008
+scalar_lr: 0.05
+validation_loss_curve: 7.703650 -> 4.447061 -> 4.312255
+final_eval_loss: 4.349539
+runtime: 32.57m
+peak_memory: 37060 MiB
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_arinit_ce_sigma_cond_freezematrix_lr10x_full_20s-20260522-094919.md
+```
+
+Freezing transformer matrix updates and lowering LR did not preserve AR
+continuation behavior; samples still collapse into word-root loops.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:
