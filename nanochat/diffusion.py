@@ -215,6 +215,9 @@ def masked_diffusion_loss(
     mask_sampling="uniform",
     loss_objective="cross_entropy",
     score_parameterization="raw",
+    teacher_model=None,
+    teacher_kl_weight=0.0,
+    teacher_temperature=1.0,
 ):
     """
     Compute the continuous-time masked diffusion objective.
@@ -228,6 +231,11 @@ def masked_diffusion_loss(
     assert mask_sampling in {"uniform", "antithetic"}
     assert loss_objective in {"cross_entropy", "score_entropy"}
     assert score_parameterization in {"raw", "sigma_scaled"}
+    assert teacher_kl_weight >= 0
+    assert teacher_temperature > 0
+    if teacher_model is not None and teacher_kl_weight > 0:
+        assert loss_objective == "cross_entropy", "teacher KL is only defined for cross_entropy training"
+        assert mask_pattern == "prefix_next", "teacher KL currently expects one prefix-next target per row"
     force_mask = None
     mask_all_eligible = False
     if mask_pattern == "full":
@@ -357,9 +365,24 @@ def masked_diffusion_loss(
             eligible_fraction = torch.tensor(1.0, device=clean_ids.device, dtype=weighted.dtype)
         else:
             eligible_fraction = effective_eligible_mask.float().mean()
-    loss = weighted.sum() / denominator
+    ce_loss = weighted.sum() / denominator
+    teacher_kl = torch.zeros((), device=clean_ids.device, dtype=ce_loss.dtype)
+    if teacher_model is not None and teacher_kl_weight > 0:
+        row_ids = torch.arange(clean_ids.size(0), device=clean_ids.device)
+        target_positions = batch.mask.to(torch.long).argmax(dim=1)
+        assert torch.all(target_positions > 0), "prefix_next teacher KL needs at least one visible prefix token"
+        student_logits = logits[row_ids, target_positions, :mask_token_id] / teacher_temperature
+        with torch.no_grad():
+            teacher_logits = teacher_model(clean_ids)[row_ids, target_positions - 1, :mask_token_id] / teacher_temperature
+            teacher_probs = F.softmax(teacher_logits, dim=-1)
+        student_log_probs = F.log_softmax(student_logits, dim=-1)
+        teacher_kl_per_row = F.kl_div(student_log_probs, teacher_probs, reduction="none").sum(dim=-1)
+        teacher_kl = teacher_kl_per_row.mean() * (teacher_temperature ** 2)
+    loss = ce_loss + teacher_kl_weight * teacher_kl
     metrics = {
         "loss": loss.detach(),
+        "ce_loss": ce_loss.detach(),
+        "teacher_kl": teacher_kl.detach(),
         "mask_fraction": batch.mask.float().mean().detach(),
         "mask_prob": batch.mask_prob.mean().detach(),
         "eligible_fraction": eligible_fraction.detach(),

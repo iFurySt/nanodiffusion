@@ -79,6 +79,18 @@ class FixedLogitModel(nn.Module):
         return logits
 
 
+class FixedTeacherModel(nn.Module):
+    def __init__(self, vocab_size=16):
+        super().__init__()
+        self.vocab_size = vocab_size
+
+    def forward(self, ids):
+        logits = torch.zeros((*ids.shape, self.vocab_size), dtype=torch.float32, device=ids.device)
+        logits[..., 7] = 4.0
+        logits[..., 3] = 2.0
+        return logits
+
+
 class MaskBiasedLossModel(nn.Module):
     def __init__(self, mask_token_id=4):
         super().__init__()
@@ -490,6 +502,33 @@ def test_diffusion_loss_can_train_prefix_next_token():
     assert metrics["mask_fraction"] == 1 / 8
     assert metrics["mask_prob"] == 1.0
     assert metrics["eligible_fraction"] == 1 / 8
+
+
+def test_diffusion_loss_can_distill_prefix_next_from_teacher():
+    model = build_tiny_bidirectional_model()
+    teacher = FixedTeacherModel(vocab_size=16)
+    clean = torch.randint(0, 16, (2, 8), dtype=torch.long)
+    generator = torch.Generator(device=clean.device).manual_seed(123)
+
+    loss, metrics = masked_diffusion_loss(
+        model,
+        clean,
+        mask_token_id=16,
+        generator=generator,
+        mask_pattern="prefix_next",
+        min_prefix_frac=0.25,
+        max_prefix_frac=0.25,
+        loss_normalization="eligible",
+        teacher_model=teacher,
+        teacher_kl_weight=0.5,
+        teacher_temperature=1.0,
+    )
+    loss.backward()
+
+    assert loss.isfinite()
+    assert metrics["teacher_kl"] > 0
+    assert metrics["loss"] > metrics["ce_loss"]
+    assert model.transformer.wte.weight.grad is not None
 
 
 def test_diffusion_loss_can_train_score_entropy_objective():

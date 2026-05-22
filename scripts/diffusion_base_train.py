@@ -28,7 +28,7 @@ os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
 import torch
 import torch.distributed as dist
 
-from nanochat.checkpoint_manager import find_last_step, load_checkpoint, save_checkpoint
+from nanochat.checkpoint_manager import find_last_step, load_checkpoint, load_model, save_checkpoint
 from nanochat.common import (
     COMPUTE_DTYPE,
     COMPUTE_DTYPE_REASON,
@@ -94,6 +94,10 @@ def parse_args():
     parser.add_argument("--diffusion-sigma-embedding-dim", type=int, default=256)
     parser.add_argument("--init-from-base-model-tag", type=str, default=None)
     parser.add_argument("--init-from-base-step", type=int, default=-1)
+    parser.add_argument("--ar-teacher-model-tag", type=str, default=None)
+    parser.add_argument("--ar-teacher-step", type=int, default=-1)
+    parser.add_argument("--ar-teacher-kl-weight", type=float, default=0.0)
+    parser.add_argument("--ar-teacher-temperature", type=float, default=1.0)
     parser.add_argument("--resume-from-step", type=int, default=-1)
     # Evaluation / output
     parser.add_argument("--eval-every", type=int, default=250)
@@ -186,6 +190,24 @@ def initialize_from_base_checkpoint(model, base_dir, args, device):
         print0(f"Skipped base init tensors: {preview}")
 
 
+def load_ar_teacher_model(args, device):
+    if args.ar_teacher_model_tag is None or args.ar_teacher_kl_weight <= 0:
+        return None
+    assert args.mask_pattern == "prefix_next", "AR teacher KL currently requires --mask-pattern=prefix_next"
+    teacher_step = None if args.ar_teacher_step == -1 else args.ar_teacher_step
+    print0(f"Loading AR teacher checkpoint {args.ar_teacher_model_tag} step {teacher_step or 'latest'}")
+    teacher_model, _teacher_tokenizer, _teacher_meta = load_model(
+        "base",
+        device,
+        phase="eval",
+        model_tag=args.ar_teacher_model_tag,
+        step=teacher_step,
+    )
+    teacher_model.requires_grad_(False)
+    teacher_model.eval()
+    return teacher_model
+
+
 @torch.inference_mode()
 def evaluate_diffusion_loss(model, tokenizer, device, args, mask_token_id, ddp_world_size):
     model.eval()
@@ -264,6 +286,7 @@ def main():
 
     base_dir = get_base_dir()
     initialize_from_base_checkpoint(model, base_dir, args, device)
+    teacher_model = load_ar_teacher_model(args, device)
     output_dirname = args.model_tag if args.model_tag else f"diffusion_d{args.depth}"
     checkpoint_dir = os.path.join(base_dir, "diffusion_checkpoints", output_dirname)
 
@@ -407,6 +430,9 @@ def main():
                 mask_sampling=args.mask_sampling,
                 loss_objective=args.loss_objective,
                 score_parameterization=args.score_parameterization,
+                teacher_model=teacher_model,
+                teacher_kl_weight=args.ar_teacher_kl_weight,
+                teacher_temperature=args.ar_teacher_temperature,
             )
             train_loss = loss.detach()
             (loss / grad_accum_steps).backward()
@@ -432,6 +458,7 @@ def main():
         print0(
             f"step {step:05d}/{num_iterations:05d} | loss: {debiased:.6f} | "
             f"mask: {metrics['mask_fraction'].item():.3f} | lrm: {lrm:.2f} | "
+            f"teacher_kl: {metrics['teacher_kl'].item():.6f} | "
             f"dt: {dt * 1000:.2f}ms | tok/sec: {tok_per_sec:,} | "
             f"bf16_mfu: {mfu:.2f} | epoch: {epoch}"
         )
@@ -467,6 +494,10 @@ def main():
             "Mask sampling": args.mask_sampling,
             "Loss objective": args.loss_objective,
             "Score parameterization": args.score_parameterization,
+            "AR teacher model tag": args.ar_teacher_model_tag,
+            "AR teacher step": args.ar_teacher_step,
+            "AR teacher KL weight": args.ar_teacher_kl_weight,
+            "AR teacher temperature": args.ar_teacher_temperature,
             "Diffusion sigma conditioning": args.diffusion_sigma_conditioning,
             "Diffusion sigma layer conditioning": args.diffusion_sigma_layer_conditioning,
             "Diffusion sigma AdaLN conditioning": args.diffusion_sigma_adaln_conditioning,

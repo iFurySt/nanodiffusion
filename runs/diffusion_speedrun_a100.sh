@@ -47,6 +47,10 @@ DIFFUSION_SIGMA_EMBEDDING="${DIFFUSION_SIGMA_EMBEDDING:-scalar}"
 DIFFUSION_SIGMA_EMBEDDING_DIM="${DIFFUSION_SIGMA_EMBEDDING_DIM:-256}"
 INIT_FROM_BASE_MODEL_TAG="${INIT_FROM_BASE_MODEL_TAG:-}"
 INIT_FROM_BASE_STEP="${INIT_FROM_BASE_STEP:--1}"
+AR_TEACHER_MODEL_TAG="${AR_TEACHER_MODEL_TAG:-}"
+AR_TEACHER_STEP="${AR_TEACHER_STEP:--1}"
+AR_TEACHER_KL_WEIGHT="${AR_TEACHER_KL_WEIGHT:-0.0}"
+AR_TEACHER_TEMPERATURE="${AR_TEACHER_TEMPERATURE:-1.0}"
 EVAL_EVERY="${EVAL_EVERY:-500}"
 EVAL_BATCHES="${EVAL_BATCHES:-20}"
 SAVE_EVERY="${SAVE_EVERY:-1000}"
@@ -105,6 +109,12 @@ if [ -n "$INIT_FROM_BASE_MODEL_TAG" ]; then
   torch_args+=(--init-from-base-model-tag="$INIT_FROM_BASE_MODEL_TAG")
   torch_args+=(--init-from-base-step="$INIT_FROM_BASE_STEP")
 fi
+if [ -n "$AR_TEACHER_MODEL_TAG" ]; then
+  torch_args+=(--ar-teacher-model-tag="$AR_TEACHER_MODEL_TAG")
+  torch_args+=(--ar-teacher-step="$AR_TEACHER_STEP")
+  torch_args+=(--ar-teacher-kl-weight="$AR_TEACHER_KL_WEIGHT")
+  torch_args+=(--ar-teacher-temperature="$AR_TEACHER_TEMPERATURE")
+fi
 
 eval_args=(--mask-eps="$MASK_EPS")
 eval_args+=(--mask-max-prob="$MASK_MAX_PROB")
@@ -161,6 +171,10 @@ append_report "- diffusion_sigma_embedding: \`$DIFFUSION_SIGMA_EMBEDDING\`"
 append_report "- diffusion_sigma_embedding_dim: \`$DIFFUSION_SIGMA_EMBEDDING_DIM\`"
 append_report "- init_from_base_model_tag: \`$INIT_FROM_BASE_MODEL_TAG\`"
 append_report "- init_from_base_step: \`$INIT_FROM_BASE_STEP\`"
+append_report "- ar_teacher_model_tag: \`$AR_TEACHER_MODEL_TAG\`"
+append_report "- ar_teacher_step: \`$AR_TEACHER_STEP\`"
+append_report "- ar_teacher_kl_weight: \`$AR_TEACHER_KL_WEIGHT\`"
+append_report "- ar_teacher_temperature: \`$AR_TEACHER_TEMPERATURE\`"
 append_report "- sample_remask_low_confidence: \`$SAMPLE_REMASK_LOW_CONFIDENCE\`"
 append_report "- sample_remask_strategy: \`$SAMPLE_REMASK_STRATEGY\`"
 append_report "- sample_sampler: \`$SAMPLE_SAMPLER\`"
