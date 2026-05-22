@@ -840,6 +840,24 @@ This rules out plain AR-initialized full-mask CE fine-tuning as sufficient. The
 next useful baseline attempt should preserve continuation behavior more directly
 instead of repeating full random masking.
 
+The direct continuation-style attempt was worse:
+
+```text
+model_tag: diffusion_a100_d20_s1024_1k_arinit_ce_suffix_span_mixed64_20s
+source_checkpoint: ar_d20_s1024_1k_20s_control step 1000
+mask_pattern: suffix_span_mixed
+span_tokens: 64
+validation_loss_curve: 6.805044 -> 4.686185 -> 4.474930
+final_eval_loss: 4.657811
+runtime: 32.38m
+peak_memory: 37061 MiB
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_arinit_ce_suffix_span_mixed64_20s-20260522-090734.md
+```
+
+It regressed into stronger token and word-root loops, so the next useful attempt
+needs a more fundamental bridge from the AR checkpoint than another masking
+pattern sweep.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:

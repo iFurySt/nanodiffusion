@@ -531,6 +531,17 @@ Known evidence:
   loop through definitions, and Fibonacci samples are not code. This rules out
   plain AR-initialized full-mask CE fine-tuning as sufficient. Report:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_arinit_ce_sigma_cond_full_20s-20260522-082828.md`.
+- The AR-initialized continuation-span run
+  `diffusion_a100_d20_s1024_1k_arinit_ce_suffix_span_mixed64_20s` combined the
+  same base checkpoint with `MASK_PATTERN=suffix_span_mixed`,
+  `SPAN_TOKENS=64`, eligible normalization, and no `/p_mask` reweighting. It
+  finished in 32.38 minutes at about 267k tokens/sec and 37,061 MiB peak memory,
+  with validation `6.805044 -> 4.686185 -> 4.474930` and final eval
+  `4.657811`. This continuation-style objective did not preserve useful AR
+  behavior: samples regressed into token/word-root loops such as "capital
+  capital", "life life", and "accacc" for Fibonacci. It is worse than full-mask
+  AR-initialized CE for the fixed-prompt gate. Report:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_arinit_ce_suffix_span_mixed64_20s-20260522-090734.md`.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -742,14 +753,16 @@ span training, mixed continuation-span training, corrected full-objective
 training, random remasking, direct score-entropy training, a d16 model-size
 pilot, 50-shard data expansion, SEDD analytic sampling, scalar sigma
 conditioning through input, per-layer residual injection, AdaLN, sinusoidal
-sigma conditioning, AR-initialized score-entropy fine-tuning, and
-AR-initialized full-mask CE fine-tuning have not cleared the sample gate. More
-of the same recipe should be avoided; the next candidate needs a broader change
-than another scalar/sinusoidal sweep or another plain AR-initialized full-mask
+sigma conditioning, AR-initialized score-entropy fine-tuning,
+AR-initialized full-mask CE fine-tuning, and AR-initialized mixed
+continuation-span fine-tuning have not cleared the sample gate. More of the same
+recipe should be avoided; the next candidate needs a broader change than another
+scalar/sinusoidal sweep or another plain AR-initialized full-mask/continuation
 run. The AR control makes this more specific: the same data/model can learn
 coherent causal language modeling, but the current diffusion objective and
-sampler still destroy continuation quality, so the next useful work should
-preserve AR behavior more directly, for example by testing a continuation-style
-AR-initialized diffusion fine-tune, a lower-LR/frozen-prefix adaptation, or a
-sampler/training setup that reveals tokens left-to-right during continuation
-instead of another from-scratch diffusion variant.
+sampler still destroy continuation quality. The next useful work should change
+the bridge between AR and diffusion more fundamentally, for example by lowering
+LR and freezing most initialized transformer weights for an adapter-style
+diffusion head warmup, distilling from the AR next-token distribution, or
+training/evaluating a sampler that reveals tokens strictly left-to-right with an
+objective matched to that schedule.
