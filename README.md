@@ -194,6 +194,7 @@ DIFFUSION_SIGMA_CONDITIONING=1 LOSS_OBJECTIVE=score_entropy SCORE_PARAMETERIZATI
 DIFFUSION_SIGMA_LAYER_CONDITIONING=1 LOSS_OBJECTIVE=score_entropy SCORE_PARAMETERIZATION=sigma_scaled MASK_MAX_PROB=0.999 MASK_SAMPLING=antithetic bash runs/diffusion_speedrun_a100.sh
 DIFFUSION_SIGMA_ADALN_CONDITIONING=1 LOSS_OBJECTIVE=score_entropy SCORE_PARAMETERIZATION=sigma_scaled MASK_MAX_PROB=0.999 MASK_SAMPLING=antithetic bash runs/diffusion_speedrun_a100.sh
 DIFFUSION_SIGMA_ADALN_CONDITIONING=1 DIFFUSION_SIGMA_EMBEDDING=sinusoidal LOSS_OBJECTIVE=score_entropy SCORE_PARAMETERIZATION=sigma_scaled MASK_MAX_PROB=0.999 MASK_SAMPLING=antithetic bash runs/diffusion_speedrun_a100.sh
+MASK_PATTERN=prefix_next LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 MASK_SAMPLING=antithetic SAMPLE_REVEAL_STRATEGY=left_to_right SAMPLE_BLOCK_SIZE=1 bash runs/diffusion_speedrun_a100.sh
 ```
 
 The defaults keep the original simple LLaDA/MDLM-style objective: sampled mask
@@ -209,6 +210,9 @@ shrinking the gradient just because only a suffix or bounded span is trainable.
 `MASK_PATTERN=suffix_all` masks the entire random suffix and trains all suffix
 targets from the visible prefix only; it removes clean-suffix leakage but is a
 much harder continuation objective.
+`MASK_PATTERN=prefix_next` goes further toward an AR bridge: it keeps a random
+prefix visible, masks the future suffix, and trains only the next token after
+the prefix.
 `MASK_SAMPLING=antithetic` spreads mask probabilities across rows in each batch
 instead of sampling every row independently.
 
@@ -884,6 +888,27 @@ report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_arinit_ce_sig
 
 Freezing transformer matrix updates and lowering LR did not preserve AR
 continuation behavior; samples still collapse into word-root loops.
+
+A stricter next-token bridge also failed:
+
+```text
+model_tag: diffusion_a100_d20_s1024_1k_arinit_ce_prefix_next_ltr_20s
+source_checkpoint: ar_d20_s1024_1k_20s_control step 1000
+mask_pattern: prefix_next
+sample_reveal_strategy: left_to_right
+sample_block_size: 1
+validation_loss_curve: 6.966356 -> 6.108967 -> 5.231133
+final_eval_loss: 5.526335
+runtime: 32.40m
+peak_memory: 37060 MiB
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_arinit_ce_prefix_next_ltr_20s-20260522-103354.md
+```
+
+The loss is worse than full-mask AR-initialized CE, and fixed-prompt samples are
+still repetitive: the France sample loops around "system/unit", meaning-of-life
+variants repeat "life", "track", or research boilerplate, and Fibonacci does not
+produce usable code. A plain next-token CE bridge plus left-to-right reveal is
+therefore not sufficient.
 
 ## Evaluate And Sample
 

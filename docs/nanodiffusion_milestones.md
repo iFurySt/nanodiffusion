@@ -558,6 +558,22 @@ Known evidence:
   "acc" loops. Freezing transformer matrices plus lower LR is therefore not
   sufficient. Report:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_arinit_ce_sigma_cond_freezematrix_lr10x_full_20s-20260522-094919.md`.
+- A stricter AR-bridge objective `MASK_PATTERN=prefix_next` was added. It keeps a
+  random prefix visible, masks all future tokens, and trains only the immediately
+  next token after the prefix; fixed-prompt sampling can pair it with
+  `SAMPLE_REVEAL_STRATEGY=left_to_right` and `SAMPLE_BLOCK_SIZE=1`.
+- The AR-initialized prefix-next pilot
+  `diffusion_a100_d20_s1024_1k_arinit_ce_prefix_next_ltr_20s` used the same
+  `ar_d20_s1024_1k_20s_control` checkpoint, eligible normalization, no `/p_mask`
+  reweighting, antithetic mask sampling, and left-to-right block-1 final
+  sampling. It completed in 32.40 minutes at the same memory scale, with
+  validation `6.966356 -> 6.108967 -> 5.231133` and final eval `5.526335`.
+  This is worse than full-mask AR-initialized CE, and samples still fail the
+  gate: the France final sample loops around "system/unit", meaning-of-life
+  samples repeat "life", "track", or research boilerplate, and Fibonacci remains
+  non-code. Plain next-token CE bridging plus left-to-right reveal is therefore
+  not sufficient. Report:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_arinit_ce_prefix_next_ltr_20s-20260522-103354.md`.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -772,13 +788,13 @@ conditioning through input, per-layer residual injection, AdaLN, sinusoidal
 sigma conditioning, AR-initialized score-entropy fine-tuning,
 AR-initialized full-mask CE fine-tuning, and AR-initialized mixed
 continuation-span fine-tuning, and frozen-matrix/low-LR AR-initialized
-fine-tuning have not cleared the sample gate. More of the same recipe should be
-avoided; the next candidate needs a broader change than another
-scalar/sinusoidal sweep, another plain AR-initialized full-mask/continuation
-run, or a simple LR/freeze schedule. The AR control makes this more specific:
-the same data/model can learn coherent causal language modeling, but the current
+fine-tuning, and AR-initialized prefix-next left-to-right bridging have not
+cleared the sample gate. More of the same recipe should be avoided; the next
+candidate needs a broader change than another scalar/sinusoidal sweep, another
+plain AR-initialized full-mask/continuation run, a simple LR/freeze schedule, or
+single-token next-token CE. The AR control makes this more specific: the same
+data/model can learn coherent causal language modeling, but the current
 diffusion objective and sampler still destroy continuation quality. The next
-useful work should change the bridge between AR and diffusion more fundamentally,
-for example by distilling from the AR next-token distribution or by
-training/evaluating a sampler that reveals tokens strictly left-to-right with an
-objective matched to that schedule.
+useful work should change the bridge between AR and diffusion more
+fundamentally, for example by distilling from the AR next-token distribution or
+by keeping more of the AR decode distribution intact during diffusion training.
