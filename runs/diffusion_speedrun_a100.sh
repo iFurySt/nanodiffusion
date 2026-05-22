@@ -54,6 +54,8 @@ SAMPLE_MAX_TOKENS="${SAMPLE_MAX_TOKENS:-64}"
 SAMPLE_SEED="${SAMPLE_SEED:-42}"
 SAMPLE_NO_REPEAT_NGRAM_SIZE="${SAMPLE_NO_REPEAT_NGRAM_SIZE:-3}"
 SAMPLE_BLOCK_SIZE="${SAMPLE_BLOCK_SIZE:-4}"
+SAMPLE_REVEAL_STRATEGY="${SAMPLE_REVEAL_STRATEGY:-confidence}"
+SAMPLE_CFG_SCALE="${SAMPLE_CFG_SCALE:-0.0}"
 SAMPLE_REMASK_LOW_CONFIDENCE="${SAMPLE_REMASK_LOW_CONFIDENCE:-0}"
 SAMPLE_REMASK_STRATEGY="${SAMPLE_REMASK_STRATEGY:-none}"
 SAMPLE_SAMPLER="${SAMPLE_SAMPLER:-iterative}"
@@ -163,6 +165,8 @@ append_report "- sample_remask_low_confidence: \`$SAMPLE_REMASK_LOW_CONFIDENCE\`
 append_report "- sample_remask_strategy: \`$SAMPLE_REMASK_STRATEGY\`"
 append_report "- sample_sampler: \`$SAMPLE_SAMPLER\`"
 append_report "- sample_block_size: \`$SAMPLE_BLOCK_SIZE\`"
+append_report "- sample_reveal_strategy: \`$SAMPLE_REVEAL_STRATEGY\`"
+append_report "- sample_cfg_scale: \`$SAMPLE_CFG_SCALE\`"
 append_report "- total_batch_size: \`$TOTAL_BATCH_SIZE\`"
 append_report "- device_batch_size: \`$DEVICE_BATCH_SIZE\`"
 append_report "- nproc_per_node: \`$NPROC_PER_NODE\`"
@@ -263,7 +267,9 @@ run_python -m scripts.diffusion_base_eval \
   "${eval_args[@]}" \
   --repeat-penalty=0.5 \
   --no-repeat-ngram-size="$SAMPLE_NO_REPEAT_NGRAM_SIZE" \
-  --block-size="$SAMPLE_BLOCK_SIZE" 2>&1 | tee "$EVAL_LOG" | tee -a "$REPORT_FILE"
+  --block-size="$SAMPLE_BLOCK_SIZE" \
+  --reveal-strategy="$SAMPLE_REVEAL_STRATEGY" \
+  --cfg-scale="$SAMPLE_CFG_SCALE" 2>&1 | tee "$EVAL_LOG" | tee -a "$REPORT_FILE"
 append_report '```'
 append_report ""
 append_report "- finished: $(date)"
