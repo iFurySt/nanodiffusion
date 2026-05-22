@@ -24,6 +24,11 @@ DEVICE_BATCH_SIZE="${DEVICE_BATCH_SIZE:-16}"
 TOTAL_BATCH_SIZE="${TOTAL_BATCH_SIZE:-524288}"
 TRAIN_STEPS="${TRAIN_STEPS:-5000}"
 WARMUP_STEPS="${WARMUP_STEPS:-100}"
+EMBEDDING_LR="${EMBEDDING_LR:-0.3}"
+UNEMBEDDING_LR="${UNEMBEDDING_LR:-0.008}"
+MATRIX_LR="${MATRIX_LR:-0.02}"
+SCALAR_LR="${SCALAR_LR:-0.5}"
+WEIGHT_DECAY="${WEIGHT_DECAY:-0.28}"
 MASK_EPS="${MASK_EPS:-1e-3}"
 MASK_MAX_PROB="${MASK_MAX_PROB:-1.0}"
 MASK_LOSS_REWEIGHT="${MASK_LOSS_REWEIGHT:-1}"
@@ -131,6 +136,11 @@ append_report "- depth: \`$DEPTH\`"
 append_report "- max_seq_len: \`$MAX_SEQ_LEN\`"
 append_report "- train_steps: \`$TRAIN_STEPS\`"
 append_report "- resume_from_step: \`$RESUME_FROM_STEP\`"
+append_report "- embedding_lr: \`$EMBEDDING_LR\`"
+append_report "- unembedding_lr: \`$UNEMBEDDING_LR\`"
+append_report "- matrix_lr: \`$MATRIX_LR\`"
+append_report "- scalar_lr: \`$SCALAR_LR\`"
+append_report "- weight_decay: \`$WEIGHT_DECAY\`"
 append_report "- mask_eps: \`$MASK_EPS\`"
 append_report "- mask_max_prob: \`$MASK_MAX_PROB\`"
 append_report "- mask_loss_reweight: \`$MASK_LOSS_REWEIGHT\`"
@@ -189,6 +199,11 @@ run_python -m torch.distributed.run --standalone --nproc_per_node="$NPROC_PER_NO
   --total-batch-size="$TOTAL_BATCH_SIZE" \
   --num-iterations="$TRAIN_STEPS" \
   --warmup-steps="$WARMUP_STEPS" \
+  --embedding-lr="$EMBEDDING_LR" \
+  --unembedding-lr="$UNEMBEDDING_LR" \
+  --matrix-lr="$MATRIX_LR" \
+  --scalar-lr="$SCALAR_LR" \
+  --weight-decay="$WEIGHT_DECAY" \
   --mask-eps="$MASK_EPS" \
   --mask-max-prob="$MASK_MAX_PROB" \
   --mask-pattern="$MASK_PATTERN" \
