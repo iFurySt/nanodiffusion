@@ -195,6 +195,7 @@ DIFFUSION_SIGMA_LAYER_CONDITIONING=1 LOSS_OBJECTIVE=score_entropy SCORE_PARAMETE
 DIFFUSION_SIGMA_ADALN_CONDITIONING=1 LOSS_OBJECTIVE=score_entropy SCORE_PARAMETERIZATION=sigma_scaled MASK_MAX_PROB=0.999 MASK_SAMPLING=antithetic bash runs/diffusion_speedrun_a100.sh
 DIFFUSION_SIGMA_ADALN_CONDITIONING=1 DIFFUSION_SIGMA_EMBEDDING=sinusoidal LOSS_OBJECTIVE=score_entropy SCORE_PARAMETERIZATION=sigma_scaled MASK_MAX_PROB=0.999 MASK_SAMPLING=antithetic bash runs/diffusion_speedrun_a100.sh
 MASK_PATTERN=prefix_next LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 MASK_SAMPLING=antithetic SAMPLE_REVEAL_STRATEGY=left_to_right SAMPLE_BLOCK_SIZE=1 bash runs/diffusion_speedrun_a100.sh
+MASK_PATTERN=prefix_next LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 MASK_SAMPLING=antithetic AR_TEACHER_MODEL_TAG=ar_d20_s1024_1k_20s_control AR_TEACHER_STEP=1000 AR_TEACHER_KL_WEIGHT=1.0 SAMPLE_REVEAL_STRATEGY=left_to_right SAMPLE_BLOCK_SIZE=1 bash runs/diffusion_speedrun_a100.sh
 ```
 
 The defaults keep the original simple LLaDA/MDLM-style objective: sampled mask
@@ -909,6 +910,30 @@ still repetitive: the France sample loops around "system/unit", meaning-of-life
 variants repeat "life", "track", or research boilerplate, and Fibonacci does not
 produce usable code. A plain next-token CE bridge plus left-to-right reveal is
 therefore not sufficient.
+
+Adding direct AR teacher KL to the same prefix-next bridge improved the eval
+loss relative to one-hot prefix-next training, but made the visible samples
+punctuation-heavy and still failed the quality gate:
+
+```text
+model_tag: diffusion_a100_d20_s1024_1k_arinit_teacherkl1_prefix_next_ltr_20s
+source_checkpoint: ar_d20_s1024_1k_20s_control step 1000
+ar_teacher: ar_d20_s1024_1k_20s_control step 1000
+ar_teacher_kl_weight: 1.0
+mask_pattern: prefix_next
+sample_reveal_strategy: left_to_right
+sample_block_size: 1
+validation_loss_curve: 6.999411 -> 4.873528 -> 4.104960
+final_eval_loss: 4.430857
+runtime: 42.85m
+peak_memory: 43903 MiB
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_arinit_teacherkl1_prefix_next_ltr_20s-20260522-183017.md
+```
+
+Greedy samples collapse mostly to comma repetition, left-to-right France and
+meaning-of-life samples produce weak sentence fragments, and the Fibonacci
+prompt remains non-code. Preserving the AR next-token distribution with a
+single-token diffusion target is therefore still not enough.
 
 ## Evaluate And Sample
 
