@@ -6,6 +6,7 @@ from nanochat.diffusion import (
     get_diffusion_vocab_size,
     get_mask_token_id,
     make_masked_batch,
+    make_prefix_next_token_masks,
     make_suffix_eligible_mask,
     make_suffix_span_masks,
     masked_diffusion_loss,
@@ -325,6 +326,23 @@ def test_make_suffix_span_masks_force_future_without_loss():
     assert force[:, 5:].all()
 
 
+def test_make_prefix_next_token_masks_force_future_without_loss():
+    clean = torch.arange(16, dtype=torch.long).view(2, 8)
+    generator = torch.Generator(device=clean.device).manual_seed(123)
+    eligible, force = make_prefix_next_token_masks(
+        clean,
+        min_prefix_frac=0.25,
+        max_prefix_frac=0.25,
+        generator=generator,
+    )
+
+    assert not eligible[:, :2].any()
+    assert eligible[:, 2].all()
+    assert not eligible[:, 3:].any()
+    assert not force[:, :3].any()
+    assert force[:, 3:].all()
+
+
 def test_bidirectional_gpt_diffusion_loss_backward():
     model = build_tiny_bidirectional_model()
     clean = torch.randint(0, 16, (2, 8), dtype=torch.long)
@@ -449,6 +467,29 @@ def test_diffusion_loss_can_train_mixed_suffix_span():
     assert loss.isfinite()
     assert metrics["mask_fraction"] > 0
     assert metrics["eligible_fraction"] == 3 / 8
+
+
+def test_diffusion_loss_can_train_prefix_next_token():
+    model = build_tiny_bidirectional_model()
+    clean = torch.randint(0, 16, (2, 8), dtype=torch.long)
+    generator = torch.Generator(device=clean.device).manual_seed(123)
+
+    loss, metrics = masked_diffusion_loss(
+        model,
+        clean,
+        mask_token_id=16,
+        generator=generator,
+        mask_pattern="prefix_next",
+        min_prefix_frac=0.25,
+        max_prefix_frac=0.25,
+        loss_normalization="eligible",
+    )
+    loss.backward()
+
+    assert loss.isfinite()
+    assert metrics["mask_fraction"] == 1 / 8
+    assert metrics["mask_prob"] == 1.0
+    assert metrics["eligible_fraction"] == 1 / 8
 
 
 def test_diffusion_loss_can_train_score_entropy_objective():

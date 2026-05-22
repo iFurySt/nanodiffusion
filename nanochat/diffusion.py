@@ -81,6 +81,31 @@ def make_suffix_span_masks(
     return eligible_mask, force_mask
 
 
+def make_prefix_next_token_masks(
+    clean_ids,
+    min_prefix_frac=0.25,
+    max_prefix_frac=0.75,
+    generator=None,
+):
+    """
+    Select a random visible prefix and train exactly the next token.
+
+    Future tokens are forced to [MASK] but are not targets. This matches a
+    strict left-to-right reveal schedule more closely than span objectives.
+    """
+    assert clean_ids.ndim == 2
+    assert 0 <= min_prefix_frac <= max_prefix_frac < 1
+    B, T = clean_ids.shape
+    device = clean_ids.device
+    min_prefix = min(T - 1, max(0, round(T * min_prefix_frac)))
+    max_prefix = min(T - 1, max(min_prefix, round(T * max_prefix_frac)))
+    prefix_lens = torch.randint(min_prefix, max_prefix + 1, (B, 1), device=device, generator=generator)
+    positions = torch.arange(T, device=device).view(1, T)
+    eligible_mask = positions == prefix_lens
+    force_mask = positions > prefix_lens
+    return eligible_mask, force_mask
+
+
 def make_masked_batch(
     clean_ids,
     mask_token_id,
@@ -254,6 +279,15 @@ def masked_diffusion_loss(
         )
         B = clean_ids.size(0)
         mask_all_eligible = torch.rand((B, 1), device=clean_ids.device, generator=generator) < 0.5
+    elif mask_pattern == "prefix_next":
+        assert eligible_mask is None, "prefix_next mask pattern cannot be combined with explicit eligible_mask"
+        effective_eligible_mask, force_mask = make_prefix_next_token_masks(
+            clean_ids,
+            min_prefix_frac=min_prefix_frac,
+            max_prefix_frac=max_prefix_frac,
+            generator=generator,
+        )
+        mask_all_eligible = True
     else:
         raise ValueError(f"unknown mask_pattern: {mask_pattern}")
 
