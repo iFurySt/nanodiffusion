@@ -99,6 +99,9 @@ def parse_args():
     parser.add_argument("--ar-teacher-step", type=int, default=-1)
     parser.add_argument("--ar-teacher-kl-weight", type=float, default=0.0)
     parser.add_argument("--ar-teacher-temperature", type=float, default=1.0)
+    parser.add_argument("--ar-rollout-tokens", type=int, default=0)
+    parser.add_argument("--ar-rollout-temperature", type=float, default=0.8)
+    parser.add_argument("--ar-rollout-top-k", type=int, default=50)
     parser.add_argument("--resume-from-step", type=int, default=-1)
     # Evaluation / output
     parser.add_argument("--eval-every", type=int, default=250)
@@ -192,11 +195,12 @@ def initialize_from_base_checkpoint(model, base_dir, args, device):
 
 
 def load_ar_teacher_model(args, device):
-    if args.ar_teacher_model_tag is None or args.ar_teacher_kl_weight <= 0:
+    if args.ar_teacher_model_tag is None or (args.ar_teacher_kl_weight <= 0 and args.ar_rollout_tokens <= 0):
         return None
-    assert args.mask_pattern in {"prefix_next", "suffix_all", "suffix_span_all"}, (
-        "AR teacher KL currently requires fully masked continuation targets"
-    )
+    if args.ar_teacher_kl_weight > 0:
+        assert args.mask_pattern in {"prefix_next", "suffix_all", "suffix_span_all"}, (
+            "AR teacher KL currently requires fully masked continuation targets"
+        )
     teacher_step = None if args.ar_teacher_step == -1 else args.ar_teacher_step
     print0(f"Loading AR teacher checkpoint {args.ar_teacher_model_tag} step {teacher_step or 'latest'}")
     teacher_model, _teacher_tokenizer, _teacher_meta = load_model(
@@ -209,6 +213,56 @@ def load_ar_teacher_model(args, device):
     teacher_model.requires_grad_(False)
     teacher_model.eval()
     return teacher_model
+
+
+def sample_top_k_logits(logits, temperature=0.8, top_k=50):
+    if temperature <= 0:
+        return logits.argmax(dim=-1)
+    logits = logits / temperature
+    if top_k > 0 and top_k < logits.size(-1):
+        values, indices = torch.topk(logits, top_k, dim=-1)
+        probs = torch.softmax(values, dim=-1)
+        picks = torch.multinomial(probs, num_samples=1).squeeze(-1)
+        return indices.gather(-1, picks.unsqueeze(-1)).squeeze(-1)
+    probs = torch.softmax(logits, dim=-1)
+    return torch.multinomial(probs, num_samples=1).squeeze(-1)
+
+
+@torch.no_grad()
+def make_ar_rollout_span_batch(teacher_model, clean_ids, args):
+    assert args.ar_rollout_tokens > 0
+    assert args.ar_teacher_model_tag is not None, "AR rollout requires --ar-teacher-model-tag"
+    assert args.mask_pattern in {"suffix_span_all", "suffix_all"}, (
+        "AR rollout currently trains fully masked continuation spans"
+    )
+    B, T = clean_ids.shape
+    device = clean_ids.device
+    min_prefix = min(T - 1, max(1, round(T * args.prefix_min_frac)))
+    max_prefix = min(T - 1, max(min_prefix, round(T * args.prefix_max_frac)))
+    prefix_lens = torch.randint(min_prefix, max_prefix + 1, (B, 1), device=device)
+    positions = torch.arange(T, device=device).view(1, T)
+    span_ends = torch.clamp(prefix_lens + args.ar_rollout_tokens, max=T)
+
+    rollout_ids = clean_ids.clone()
+    for offset in range(args.ar_rollout_tokens):
+        target_positions = prefix_lens.squeeze(1) + offset
+        active = target_positions < T
+        if not active.any():
+            break
+        active_rows = active.nonzero(as_tuple=False).flatten()
+        prev_positions = target_positions[active_rows] - 1
+        logits = teacher_model(rollout_ids)
+        next_logits = logits[active_rows, prev_positions]
+        sampled = sample_top_k_logits(
+            next_logits,
+            temperature=args.ar_rollout_temperature,
+            top_k=args.ar_rollout_top_k,
+        )
+        rollout_ids[active_rows, target_positions[active_rows]] = sampled
+
+    eligible_mask = (positions >= prefix_lens) & (positions < span_ends)
+    force_mask = positions >= span_ends
+    return rollout_ids, eligible_mask, force_mask
 
 
 @torch.inference_mode()
@@ -418,14 +472,27 @@ def main():
         synchronize()
         t0 = time.time()
         for micro_step in range(grad_accum_steps):
+            loss_clean_ids = clean_ids
+            explicit_eligible_mask = None
+            explicit_force_mask = None
+            explicit_mask_all_eligible = False
+            loss_mask_pattern = args.mask_pattern
+            if args.ar_rollout_tokens > 0:
+                loss_clean_ids, explicit_eligible_mask, explicit_force_mask = make_ar_rollout_span_batch(
+                    teacher_model,
+                    clean_ids,
+                    args,
+                )
+                explicit_mask_all_eligible = True
+                loss_mask_pattern = "full"
             loss, metrics = masked_diffusion_loss(
                 train_model,
-                clean_ids,
+                loss_clean_ids,
                 mask_token_id,
                 eps=args.mask_eps,
                 max_mask_prob=args.mask_max_prob,
                 loss_reweight=not args.no_mask_loss_reweight,
-                mask_pattern=args.mask_pattern,
+                mask_pattern=loss_mask_pattern,
                 min_prefix_frac=args.prefix_min_frac,
                 max_prefix_frac=args.prefix_max_frac,
                 span_tokens=args.span_tokens,
@@ -433,6 +500,9 @@ def main():
                 mask_sampling=args.mask_sampling,
                 loss_objective=args.loss_objective,
                 score_parameterization=args.score_parameterization,
+                eligible_mask=explicit_eligible_mask,
+                force_mask=explicit_force_mask,
+                mask_all_eligible=explicit_mask_all_eligible,
                 teacher_model=teacher_model,
                 teacher_kl_weight=args.ar_teacher_kl_weight,
                 teacher_temperature=args.ar_teacher_temperature,
@@ -502,6 +572,9 @@ def main():
             "AR teacher step": args.ar_teacher_step,
             "AR teacher KL weight": args.ar_teacher_kl_weight,
             "AR teacher temperature": args.ar_teacher_temperature,
+            "AR rollout tokens": args.ar_rollout_tokens,
+            "AR rollout temperature": args.ar_rollout_temperature,
+            "AR rollout top k": args.ar_rollout_top_k,
             "Diffusion sigma conditioning": args.diffusion_sigma_conditioning,
             "Diffusion sigma layer conditioning": args.diffusion_sigma_layer_conditioning,
             "Diffusion sigma AdaLN conditioning": args.diffusion_sigma_adaln_conditioning,

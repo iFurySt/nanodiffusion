@@ -218,6 +218,8 @@ def masked_diffusion_loss(
     teacher_model=None,
     teacher_kl_weight=0.0,
     teacher_temperature=1.0,
+    force_mask=None,
+    mask_all_eligible=False,
 ):
     """
     Compute the continuous-time masked diffusion objective.
@@ -238,12 +240,13 @@ def masked_diffusion_loss(
         assert mask_pattern in {"prefix_next", "suffix_all", "suffix_span_all"}, (
             "teacher KL currently expects fully masked continuation targets"
         )
-    force_mask = None
-    mask_all_eligible = False
+    effective_force_mask = force_mask
+    effective_mask_all_eligible = mask_all_eligible
     if mask_pattern == "full":
         effective_eligible_mask = eligible_mask
     elif mask_pattern == "suffix":
         assert eligible_mask is None, "suffix mask pattern cannot be combined with explicit eligible_mask"
+        assert force_mask is None, "suffix mask pattern cannot be combined with explicit force_mask"
         effective_eligible_mask = make_suffix_eligible_mask(
             clean_ids,
             min_prefix_frac=min_prefix_frac,
@@ -252,16 +255,18 @@ def masked_diffusion_loss(
         )
     elif mask_pattern == "suffix_all":
         assert eligible_mask is None, "suffix_all mask pattern cannot be combined with explicit eligible_mask"
+        assert force_mask is None, "suffix_all mask pattern cannot be combined with explicit force_mask"
         effective_eligible_mask = make_suffix_eligible_mask(
             clean_ids,
             min_prefix_frac=min_prefix_frac,
             max_prefix_frac=max_prefix_frac,
             generator=generator,
         )
-        mask_all_eligible = True
+        effective_mask_all_eligible = True
     elif mask_pattern == "suffix_span":
         assert eligible_mask is None, "suffix_span mask pattern cannot be combined with explicit eligible_mask"
-        effective_eligible_mask, force_mask = make_suffix_span_masks(
+        assert force_mask is None, "suffix_span mask pattern cannot be combined with explicit force_mask"
+        effective_eligible_mask, effective_force_mask = make_suffix_span_masks(
             clean_ids,
             span_tokens=span_tokens,
             min_prefix_frac=min_prefix_frac,
@@ -270,17 +275,19 @@ def masked_diffusion_loss(
         )
     elif mask_pattern == "suffix_span_all":
         assert eligible_mask is None, "suffix_span_all mask pattern cannot be combined with explicit eligible_mask"
-        effective_eligible_mask, force_mask = make_suffix_span_masks(
+        assert force_mask is None, "suffix_span_all mask pattern cannot be combined with explicit force_mask"
+        effective_eligible_mask, effective_force_mask = make_suffix_span_masks(
             clean_ids,
             span_tokens=span_tokens,
             min_prefix_frac=min_prefix_frac,
             max_prefix_frac=max_prefix_frac,
             generator=generator,
         )
-        mask_all_eligible = True
+        effective_mask_all_eligible = True
     elif mask_pattern == "suffix_span_mixed":
         assert eligible_mask is None, "suffix_span_mixed mask pattern cannot be combined with explicit eligible_mask"
-        effective_eligible_mask, force_mask = make_suffix_span_masks(
+        assert force_mask is None, "suffix_span_mixed mask pattern cannot be combined with explicit force_mask"
+        effective_eligible_mask, effective_force_mask = make_suffix_span_masks(
             clean_ids,
             span_tokens=span_tokens,
             min_prefix_frac=min_prefix_frac,
@@ -288,16 +295,17 @@ def masked_diffusion_loss(
             generator=generator,
         )
         B = clean_ids.size(0)
-        mask_all_eligible = torch.rand((B, 1), device=clean_ids.device, generator=generator) < 0.5
+        effective_mask_all_eligible = torch.rand((B, 1), device=clean_ids.device, generator=generator) < 0.5
     elif mask_pattern == "prefix_next":
         assert eligible_mask is None, "prefix_next mask pattern cannot be combined with explicit eligible_mask"
-        effective_eligible_mask, force_mask = make_prefix_next_token_masks(
+        assert force_mask is None, "prefix_next mask pattern cannot be combined with explicit force_mask"
+        effective_eligible_mask, effective_force_mask = make_prefix_next_token_masks(
             clean_ids,
             min_prefix_frac=min_prefix_frac,
             max_prefix_frac=max_prefix_frac,
             generator=generator,
         )
-        mask_all_eligible = True
+        effective_mask_all_eligible = True
     else:
         raise ValueError(f"unknown mask_pattern: {mask_pattern}")
 
@@ -308,8 +316,8 @@ def masked_diffusion_loss(
         generator=generator,
         eligible_mask=effective_eligible_mask,
         max_mask_prob=max_mask_prob,
-        force_mask=force_mask,
-        mask_all_eligible=mask_all_eligible,
+        force_mask=effective_force_mask,
+        mask_all_eligible=effective_mask_all_eligible,
         mask_sampling=mask_sampling,
     )
     model_sigma = None
@@ -331,7 +339,7 @@ def masked_diffusion_loss(
         ).view_as(clean_ids)
         weighted = per_token / batch.mask_prob if loss_reweight else per_token
     else:
-        if mask_all_eligible is True or isinstance(mask_all_eligible, torch.Tensor):
+        if effective_mask_all_eligible is True or isinstance(effective_mask_all_eligible, torch.Tensor):
             raise ValueError("score_entropy objective does not support fully masked eligible rows")
         mask_prob = batch.mask_prob.clamp(max=1 - 1e-5)
         sigma = model_sigma if model_sigma is not None else -torch.log1p(-mask_prob)

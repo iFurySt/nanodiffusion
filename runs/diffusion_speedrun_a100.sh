@@ -52,6 +52,9 @@ AR_TEACHER_MODEL_TAG="${AR_TEACHER_MODEL_TAG:-}"
 AR_TEACHER_STEP="${AR_TEACHER_STEP:--1}"
 AR_TEACHER_KL_WEIGHT="${AR_TEACHER_KL_WEIGHT:-0.0}"
 AR_TEACHER_TEMPERATURE="${AR_TEACHER_TEMPERATURE:-1.0}"
+AR_ROLLOUT_TOKENS="${AR_ROLLOUT_TOKENS:-0}"
+AR_ROLLOUT_TEMPERATURE="${AR_ROLLOUT_TEMPERATURE:-0.8}"
+AR_ROLLOUT_TOP_K="${AR_ROLLOUT_TOP_K:-50}"
 EVAL_EVERY="${EVAL_EVERY:-500}"
 EVAL_BATCHES="${EVAL_BATCHES:-20}"
 SAVE_EVERY="${SAVE_EVERY:-1000}"
@@ -116,6 +119,11 @@ if [ -n "$AR_TEACHER_MODEL_TAG" ]; then
   torch_args+=(--ar-teacher-kl-weight="$AR_TEACHER_KL_WEIGHT")
   torch_args+=(--ar-teacher-temperature="$AR_TEACHER_TEMPERATURE")
 fi
+if [ "$AR_ROLLOUT_TOKENS" != "0" ]; then
+  torch_args+=(--ar-rollout-tokens="$AR_ROLLOUT_TOKENS")
+  torch_args+=(--ar-rollout-temperature="$AR_ROLLOUT_TEMPERATURE")
+  torch_args+=(--ar-rollout-top-k="$AR_ROLLOUT_TOP_K")
+fi
 
 eval_args=(--mask-eps="$MASK_EPS")
 eval_args+=(--mask-max-prob="$MASK_MAX_PROB")
@@ -177,6 +185,9 @@ append_report "- ar_teacher_model_tag: \`$AR_TEACHER_MODEL_TAG\`"
 append_report "- ar_teacher_step: \`$AR_TEACHER_STEP\`"
 append_report "- ar_teacher_kl_weight: \`$AR_TEACHER_KL_WEIGHT\`"
 append_report "- ar_teacher_temperature: \`$AR_TEACHER_TEMPERATURE\`"
+append_report "- ar_rollout_tokens: \`$AR_ROLLOUT_TOKENS\`"
+append_report "- ar_rollout_temperature: \`$AR_ROLLOUT_TEMPERATURE\`"
+append_report "- ar_rollout_top_k: \`$AR_ROLLOUT_TOP_K\`"
 append_report "- sample_remask_low_confidence: \`$SAMPLE_REMASK_LOW_CONFIDENCE\`"
 append_report "- sample_remask_strategy: \`$SAMPLE_REMASK_STRATEGY\`"
 append_report "- sample_sampler: \`$SAMPLE_SAMPLER\`"

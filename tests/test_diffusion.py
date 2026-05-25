@@ -13,7 +13,7 @@ from nanochat.diffusion import (
     sample_masked_diffusion,
 )
 from nanochat.gpt import GPT, GPTConfig
-from scripts.diffusion_base_train import build_model_meta, copy_compatible_initialization_weights
+from scripts.diffusion_base_train import build_model_meta, copy_compatible_initialization_weights, make_ar_rollout_span_batch
 from scripts.diffusion_chat_sft import sft_loader
 
 
@@ -557,6 +557,58 @@ def test_diffusion_loss_can_distill_suffix_span_block_from_teacher():
     assert metrics["mask_fraction"] == 3 / 8
     assert metrics["teacher_kl"] > 0
     assert metrics["loss"] > metrics["ce_loss"]
+    assert model.transformer.wte.weight.grad is not None
+
+
+def test_ar_rollout_span_batch_builds_explicit_training_masks():
+    teacher = FixedTeacherModel(vocab_size=16)
+    clean = torch.arange(16, dtype=torch.long).view(2, 8)
+    args = SimpleNamespace(
+        ar_rollout_tokens=3,
+        ar_teacher_model_tag="teacher",
+        mask_pattern="suffix_span_all",
+        prefix_min_frac=0.25,
+        prefix_max_frac=0.25,
+        ar_rollout_temperature=0.0,
+        ar_rollout_top_k=0,
+    )
+
+    rollout_ids, eligible_mask, force_mask = make_ar_rollout_span_batch(teacher, clean, args)
+
+    assert eligible_mask.tolist() == [
+        [False, False, True, True, True, False, False, False],
+        [False, False, True, True, True, False, False, False],
+    ]
+    assert force_mask.tolist() == [
+        [False, False, False, False, False, True, True, True],
+        [False, False, False, False, False, True, True, True],
+    ]
+    assert rollout_ids[:, 2:5].tolist() == [[7, 7, 7], [7, 7, 7]]
+
+
+def test_diffusion_loss_accepts_explicit_force_mask_and_mask_all():
+    model = build_tiny_bidirectional_model()
+    clean = torch.randint(0, 16, (2, 8), dtype=torch.long)
+    eligible_mask = torch.zeros_like(clean, dtype=torch.bool)
+    eligible_mask[:, 2:5] = True
+    force_mask = torch.zeros_like(clean, dtype=torch.bool)
+    force_mask[:, 5:] = True
+
+    loss, metrics = masked_diffusion_loss(
+        model,
+        clean,
+        mask_token_id=16,
+        mask_pattern="full",
+        eligible_mask=eligible_mask,
+        force_mask=force_mask,
+        mask_all_eligible=True,
+        loss_normalization="eligible",
+    )
+    loss.backward()
+
+    assert loss.isfinite()
+    assert metrics["mask_fraction"] == 3 / 8
+    assert metrics["mask_prob"] == 1.0
     assert model.transformer.wte.weight.grad is not None
 
 
