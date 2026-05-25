@@ -531,6 +531,35 @@ def test_diffusion_loss_can_distill_prefix_next_from_teacher():
     assert model.transformer.wte.weight.grad is not None
 
 
+def test_diffusion_loss_can_distill_suffix_span_block_from_teacher():
+    model = build_tiny_bidirectional_model()
+    teacher = FixedTeacherModel(vocab_size=16)
+    clean = torch.randint(0, 16, (2, 8), dtype=torch.long)
+    generator = torch.Generator(device=clean.device).manual_seed(123)
+
+    loss, metrics = masked_diffusion_loss(
+        model,
+        clean,
+        mask_token_id=16,
+        generator=generator,
+        mask_pattern="suffix_span_all",
+        min_prefix_frac=0.25,
+        max_prefix_frac=0.25,
+        span_tokens=3,
+        loss_normalization="eligible",
+        teacher_model=teacher,
+        teacher_kl_weight=0.5,
+        teacher_temperature=1.0,
+    )
+    loss.backward()
+
+    assert loss.isfinite()
+    assert metrics["mask_fraction"] == 3 / 8
+    assert metrics["teacher_kl"] > 0
+    assert metrics["loss"] > metrics["ce_loss"]
+    assert model.transformer.wte.weight.grad is not None
+
+
 def test_diffusion_loss_can_train_score_entropy_objective():
     model = build_tiny_bidirectional_model()
     clean = torch.randint(0, 16, (2, 8), dtype=torch.long)

@@ -235,7 +235,9 @@ def masked_diffusion_loss(
     assert teacher_temperature > 0
     if teacher_model is not None and teacher_kl_weight > 0:
         assert loss_objective == "cross_entropy", "teacher KL is only defined for cross_entropy training"
-        assert mask_pattern == "prefix_next", "teacher KL currently expects one prefix-next target per row"
+        assert mask_pattern in {"prefix_next", "suffix_all", "suffix_span_all"}, (
+            "teacher KL currently expects fully masked continuation targets"
+        )
     force_mask = None
     mask_all_eligible = False
     if mask_pattern == "full":
@@ -368,16 +370,17 @@ def masked_diffusion_loss(
     ce_loss = weighted.sum() / denominator
     teacher_kl = torch.zeros((), device=clean_ids.device, dtype=ce_loss.dtype)
     if teacher_model is not None and teacher_kl_weight > 0:
-        row_ids = torch.arange(clean_ids.size(0), device=clean_ids.device)
-        target_positions = batch.mask.to(torch.long).argmax(dim=1)
-        assert torch.all(target_positions > 0), "prefix_next teacher KL needs at least one visible prefix token"
+        positions = torch.arange(clean_ids.size(1), device=clean_ids.device).view(1, -1)
+        teacher_mask = batch.mask & (positions > 0)
+        assert teacher_mask.any(), "teacher KL needs at least one target with a previous token"
+        row_ids, target_positions = teacher_mask.nonzero(as_tuple=True)
         student_logits = logits[row_ids, target_positions, :mask_token_id] / teacher_temperature
         with torch.no_grad():
             teacher_logits = teacher_model(clean_ids)[row_ids, target_positions - 1, :mask_token_id] / teacher_temperature
             teacher_probs = F.softmax(teacher_logits, dim=-1)
         student_log_probs = F.log_softmax(student_logits, dim=-1)
-        teacher_kl_per_row = F.kl_div(student_log_probs, teacher_probs, reduction="none").sum(dim=-1)
-        teacher_kl = teacher_kl_per_row.mean() * (teacher_temperature ** 2)
+        teacher_kl_per_token = F.kl_div(student_log_probs, teacher_probs, reduction="none").sum(dim=-1)
+        teacher_kl = teacher_kl_per_token.mean() * (teacher_temperature ** 2)
     loss = ce_loss + teacher_kl_weight * teacher_kl
     metrics = {
         "loss": loss.detach(),
