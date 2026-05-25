@@ -218,6 +218,7 @@ def masked_diffusion_loss(
     teacher_model=None,
     teacher_kl_weight=0.0,
     teacher_temperature=1.0,
+    ce_loss_weight=1.0,
     force_mask=None,
     mask_all_eligible=False,
 ):
@@ -235,10 +236,11 @@ def masked_diffusion_loss(
     assert score_parameterization in {"raw", "sigma_scaled"}
     assert teacher_kl_weight >= 0
     assert teacher_temperature > 0
+    assert ce_loss_weight >= 0
     if teacher_model is not None and teacher_kl_weight > 0:
         assert loss_objective == "cross_entropy", "teacher KL is only defined for cross_entropy training"
-        assert mask_pattern in {"prefix_next", "suffix_all", "suffix_span_all"}, (
-            "teacher KL currently expects fully masked continuation targets"
+        assert mask_pattern in {"full", "prefix_next", "suffix_all", "suffix_span_all"}, (
+            "teacher KL currently expects explicit or fully masked continuation targets"
         )
     effective_force_mask = force_mask
     effective_mask_all_eligible = mask_all_eligible
@@ -389,7 +391,7 @@ def masked_diffusion_loss(
         student_log_probs = F.log_softmax(student_logits, dim=-1)
         teacher_kl_per_token = F.kl_div(student_log_probs, teacher_probs, reduction="none").sum(dim=-1)
         teacher_kl = teacher_kl_per_token.mean() * (teacher_temperature ** 2)
-    loss = ce_loss + teacher_kl_weight * teacher_kl
+    loss = ce_loss_weight * ce_loss + teacher_kl_weight * teacher_kl
     metrics = {
         "loss": loss.detach(),
         "ce_loss": ce_loss.detach(),

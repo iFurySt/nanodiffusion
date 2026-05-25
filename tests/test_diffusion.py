@@ -560,6 +560,39 @@ def test_diffusion_loss_can_distill_suffix_span_block_from_teacher():
     assert model.transformer.wte.weight.grad is not None
 
 
+def test_diffusion_loss_can_train_explicit_mask_with_teacher_kl_only():
+    model = build_tiny_bidirectional_model()
+    teacher = FixedTeacherModel(vocab_size=16)
+    clean = torch.randint(0, 16, (2, 8), dtype=torch.long)
+    eligible_mask = torch.zeros_like(clean, dtype=torch.bool)
+    eligible_mask[:, 2:6] = True
+    force_mask = torch.zeros_like(clean, dtype=torch.bool)
+    force_mask[:, 6:] = True
+
+    loss, metrics = masked_diffusion_loss(
+        model,
+        clean,
+        mask_token_id=16,
+        mask_pattern="full",
+        eligible_mask=eligible_mask,
+        force_mask=force_mask,
+        mask_all_eligible=True,
+        loss_normalization="eligible",
+        teacher_model=teacher,
+        teacher_kl_weight=1.0,
+        teacher_temperature=1.0,
+        ce_loss_weight=0.0,
+    )
+    loss.backward()
+
+    assert loss.isfinite()
+    assert metrics["mask_fraction"] == 4 / 8
+    assert metrics["teacher_kl"] > 0
+    assert torch.allclose(metrics["loss"], metrics["teacher_kl"])
+    assert metrics["ce_loss"] > 0
+    assert model.transformer.wte.weight.grad is not None
+
+
 def test_ar_rollout_span_batch_builds_explicit_training_masks():
     teacher = FixedTeacherModel(vocab_size=16)
     clean = torch.arange(16, dtype=torch.long).view(2, 8)

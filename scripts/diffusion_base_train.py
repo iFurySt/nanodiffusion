@@ -87,6 +87,7 @@ def parse_args():
     parser.add_argument("--loss-normalization", type=str, default="all", choices=["all", "eligible"])
     parser.add_argument("--mask-sampling", type=str, default="uniform", choices=["uniform", "antithetic"])
     parser.add_argument("--loss-objective", type=str, default="cross_entropy", choices=["cross_entropy", "score_entropy"])
+    parser.add_argument("--ce-loss-weight", type=float, default=1.0)
     parser.add_argument("--score-parameterization", type=str, default="raw", choices=["raw", "sigma_scaled"])
     parser.add_argument("--diffusion-sigma-conditioning", action="store_true")
     parser.add_argument("--diffusion-sigma-layer-conditioning", action="store_true")
@@ -511,6 +512,7 @@ def main():
                 loss_normalization=args.loss_normalization,
                 mask_sampling=args.mask_sampling,
                 loss_objective=args.loss_objective,
+                ce_loss_weight=args.ce_loss_weight,
                 score_parameterization=args.score_parameterization,
                 eligible_mask=explicit_eligible_mask,
                 force_mask=explicit_force_mask,
@@ -578,6 +580,7 @@ def main():
             "Loss normalization": args.loss_normalization,
             "Mask sampling": args.mask_sampling,
             "Loss objective": args.loss_objective,
+            "CE loss weight": args.ce_loss_weight,
             "Score parameterization": args.score_parameterization,
             "Attention mode": args.attention_mode,
             "AR teacher model tag": args.ar_teacher_model_tag,

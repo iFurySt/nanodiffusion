@@ -40,6 +40,7 @@ SPAN_TOKENS="${SPAN_TOKENS:-128}"
 LOSS_NORMALIZATION="${LOSS_NORMALIZATION:-all}"
 MASK_SAMPLING="${MASK_SAMPLING:-uniform}"
 LOSS_OBJECTIVE="${LOSS_OBJECTIVE:-cross_entropy}"
+CE_LOSS_WEIGHT="${CE_LOSS_WEIGHT:-1.0}"
 SCORE_PARAMETERIZATION="${SCORE_PARAMETERIZATION:-raw}"
 DIFFUSION_SIGMA_CONDITIONING="${DIFFUSION_SIGMA_CONDITIONING:-0}"
 DIFFUSION_SIGMA_LAYER_CONDITIONING="${DIFFUSION_SIGMA_LAYER_CONDITIONING:-0}"
@@ -138,6 +139,7 @@ eval_args+=(--span-tokens="$SPAN_TOKENS")
 eval_args+=(--loss-normalization="$LOSS_NORMALIZATION")
 eval_args+=(--mask-sampling="$MASK_SAMPLING")
 eval_args+=(--loss-objective="$LOSS_OBJECTIVE")
+torch_args+=(--ce-loss-weight="$CE_LOSS_WEIGHT")
 eval_args+=(--score-parameterization="$SCORE_PARAMETERIZATION")
 if [ "$MASK_LOSS_REWEIGHT" = "0" ]; then
   eval_args+=(--no-mask-loss-reweight)
@@ -177,6 +179,7 @@ append_report "- span_tokens: \`$SPAN_TOKENS\`"
 append_report "- loss_normalization: \`$LOSS_NORMALIZATION\`"
 append_report "- mask_sampling: \`$MASK_SAMPLING\`"
 append_report "- loss_objective: \`$LOSS_OBJECTIVE\`"
+append_report "- ce_loss_weight: \`$CE_LOSS_WEIGHT\`"
 append_report "- score_parameterization: \`$SCORE_PARAMETERIZATION\`"
 append_report "- diffusion_sigma_conditioning: \`$DIFFUSION_SIGMA_CONDITIONING\`"
 append_report "- diffusion_sigma_layer_conditioning: \`$DIFFUSION_SIGMA_LAYER_CONDITIONING\`"
