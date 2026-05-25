@@ -1178,6 +1178,38 @@ collapsed into "of"/"death"/"life" loops, and Fibonacci still did not produce
 code. The fixed-prompt failure is therefore not just caused by the previous
 25%-75% prefix-length training distribution.
 
+A stricter single-token KL-only progressive rollout then tested whether the
+4-token block objective was too mismatched with left-to-right reveal inside the
+block. It was worse:
+
+```text
+model_tag: diffusion_a100_d20_s1024_1k_arinit_causal_arrollout8_prog1_klonly_ltr_20s
+source_checkpoint: ar_d20_s1024_1k_20s_control step 1000
+ar_teacher: ar_d20_s1024_1k_20s_control step 1000
+attention_mode: causal
+mask_pattern: suffix_span_all
+span_tokens: 8
+ce_loss_weight: 0
+ar_teacher_kl_weight: 1.0
+ar_rollout_tokens: 8
+ar_rollout_objective: progressive
+ar_rollout_train_tokens: 1
+ar_rollout_temperature: 0.8
+ar_rollout_top_k: 50
+sample_reveal_strategy: left_to_right
+sample_block_size: 1
+validation_loss_curve: 7.481161 -> 7.820302 -> 8.035831
+final_eval_loss: 8.116611
+runtime: 121.68m
+peak_memory: 43904 MiB
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_arinit_causal_arrollout8_prog1_klonly_ltr_20s-20260526-015813.md
+```
+
+The training KL fell because only one rollout token was supervised, but the
+diffusion validation objective regressed and samples collapsed into punctuation,
+prompt-word loops, and non-code Fibonacci continuations. Strict single-token
+rollout KL is too sparse to serve as the missing AR-to-diffusion bridge.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:

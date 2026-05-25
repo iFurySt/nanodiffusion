@@ -709,6 +709,18 @@ Known evidence:
   fixed-prompt failure is not explained only by long-prefix training
   distribution mismatch. Report:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_arinit_causal_arrollout8_prog4_klonly_p005_ltr_20s-20260525-234701.md`.
+- A strict single-token KL-only progressive rollout
+  `diffusion_a100_d20_s1024_1k_arinit_causal_arrollout8_prog1_klonly_ltr_20s`
+  tested whether the 4-token block target was too mismatched with left-to-right
+  reveal inside the sampled block. It used `AR_ROLLOUT_TRAIN_TOKENS=1`,
+  `CE_LOSS_WEIGHT=0`, `AR_TEACHER_KL_WEIGHT=1.0`, and left-to-right block-1
+  final sampling. It completed in 121.68 minutes at 43,904 MiB peak memory,
+  with validation `7.481161 -> 7.820302 -> 8.035831` and final eval
+  `8.116611`. Training KL fell because each row supervises only one rollout
+  token, but diffusion validation regressed and samples collapsed into
+  punctuation, prompt-word loops, and non-code Fibonacci continuations. Strict
+  single-token rollout KL is too sparse to be the bridge. Report:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_arinit_causal_arrollout8_prog1_klonly_ltr_20s-20260526-015813.md`.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -928,14 +940,16 @@ AR-teacher KL, teacher-forced multi-token span KL, causal prefix-next
 diffusion, fully masked sampled AR rollout span training, one-token
 or four-token progressive sampled AR rollout CE training, and four-token
 progressive sampled AR rollout KL-only or CE+KL training, including a
-short-prefix progressive KL-only run, have not cleared the
+short-prefix progressive KL-only run and a strict single-token KL-only run,
+have not cleared the
 sample gate. More of the same recipe should be avoided; the next candidate
 needs a broader change than another
 scalar/sinusoidal sweep, another plain AR-initialized full-mask/continuation
 run, a simple LR/freeze schedule, single-token next-token CE, or single-token
 next-token KL, teacher-forced span KL, a causal-attention-only swap, or a fully
 masked sampled-rollout span, one/four-token progressive rollout CE/KL variant,
-or short-prefix-only version of the same objective.
+short-prefix-only version of the same objective, or single-token-only KL
+version of the same objective.
 The AR
 control makes this more specific: the same data/model can learn coherent causal
 language modeling, but the current diffusion objective and sampler still
