@@ -197,6 +197,7 @@ DIFFUSION_SIGMA_ADALN_CONDITIONING=1 DIFFUSION_SIGMA_EMBEDDING=sinusoidal LOSS_O
 MASK_PATTERN=prefix_next LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 MASK_SAMPLING=antithetic SAMPLE_REVEAL_STRATEGY=left_to_right SAMPLE_BLOCK_SIZE=1 bash runs/diffusion_speedrun_a100.sh
 MASK_PATTERN=prefix_next LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 MASK_SAMPLING=antithetic AR_TEACHER_MODEL_TAG=ar_d20_s1024_1k_20s_control AR_TEACHER_STEP=1000 AR_TEACHER_KL_WEIGHT=1.0 SAMPLE_REVEAL_STRATEGY=left_to_right SAMPLE_BLOCK_SIZE=1 bash runs/diffusion_speedrun_a100.sh
 MASK_PATTERN=suffix_span_all SPAN_TOKENS=64 LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 MASK_SAMPLING=antithetic AR_TEACHER_MODEL_TAG=ar_d20_s1024_1k_20s_control AR_TEACHER_STEP=1000 AR_TEACHER_KL_WEIGHT=1.0 SAMPLE_REVEAL_STRATEGY=left_to_right SAMPLE_BLOCK_SIZE=4 bash runs/diffusion_speedrun_a100.sh
+ATTENTION_MODE=causal MASK_PATTERN=prefix_next LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 MASK_SAMPLING=antithetic SAMPLE_REVEAL_STRATEGY=left_to_right SAMPLE_BLOCK_SIZE=1 bash runs/diffusion_speedrun_a100.sh
 ```
 
 The defaults keep the original simple LLaDA/MDLM-style objective: sampled mask
@@ -958,6 +959,29 @@ The fixed-prompt samples collapsed into prompt-keyword loops: France repeats
 "capital", meaning-of-life repeats "life/meaning", and Fibonacci repeats
 "acc/on/fib" fragments. Teacher-forced span KL is therefore not a viable bridge
 by itself.
+
+The speedrun can also build a causal diffusion denoiser with `ATTENTION_MODE=causal`.
+This is faster and structurally closer to AR left-to-right reveal, but the first
+A100 pilot still failed the sample gate:
+
+```text
+model_tag: diffusion_a100_d20_s1024_1k_arinit_causal_prefix_next_ltr_20s
+source_checkpoint: ar_d20_s1024_1k_20s_control step 1000
+attention_mode: causal
+mask_pattern: prefix_next
+sample_reveal_strategy: left_to_right
+sample_block_size: 1
+validation_loss_curve: 5.984733 -> 6.103633 -> 5.161875
+final_eval_loss: 5.373872
+runtime: 31.52m
+peak_memory: 37061 MiB
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_arinit_causal_prefix_next_ltr_20s-20260525-120420.md
+```
+
+The samples are less punctuation-heavy than teacher-KL runs but still loop:
+France drifts into "largest"/"China" repetition, meaning-of-life loops on
+"world/life", and Fibonacci remains non-code. Causal attention alone is not
+enough.
 
 ## Evaluate And Sample
 

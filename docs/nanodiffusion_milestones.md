@@ -607,6 +607,22 @@ Known evidence:
   repeats "acc/on/fib" fragments. Teacher-forced span KL is therefore not a
   viable bridge by itself. Report:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_arinit_teacherkl1_span64_ltr_20s-20260525-111351.md`.
+- Base diffusion training now accepts `--attention-mode={bidirectional,causal}`;
+  `ATTENTION_MODE=causal` is exposed in the A100 speedrun and recorded in
+  reports. This tests whether a denoiser with the same causal attention structure
+  as AR decoding preserves continuation behavior better under prefix-next
+  training.
+- The causal AR-initialized prefix-next pilot
+  `diffusion_a100_d20_s1024_1k_arinit_causal_prefix_next_ltr_20s` used
+  `ATTENTION_MODE=causal`, `MASK_PATTERN=prefix_next`, eligible normalization,
+  no `/p_mask` reweighting, antithetic masks, scalar sigma conditioning, and
+  left-to-right block-1 final sampling. It completed in 31.52 minutes at 37,061
+  MiB peak memory, with validation `5.984733 -> 6.103633 -> 5.161875` and final
+  eval `5.373872`. Causal attention made training faster and reduced memory, but
+  it did not clear the sample gate: France drifts into "largest/China"
+  repetition, meaning-of-life loops on "world/life", and Fibonacci remains
+  non-code. Causal attention alone is therefore not sufficient. Report:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_arinit_causal_prefix_next_ltr_20s-20260525-120420.md`.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -822,15 +838,15 @@ sigma conditioning, AR-initialized score-entropy fine-tuning,
 AR-initialized full-mask CE fine-tuning, and AR-initialized mixed
 continuation-span fine-tuning, and frozen-matrix/low-LR AR-initialized
 fine-tuning, AR-initialized prefix-next left-to-right bridging, prefix-next
-AR-teacher KL, and teacher-forced multi-token span KL have not cleared the
-sample gate. More of the same recipe should be avoided; the next candidate needs
-a broader change than another
+AR-teacher KL, teacher-forced multi-token span KL, and causal prefix-next
+diffusion have not cleared the sample gate. More of the same recipe should be
+avoided; the next candidate needs a broader change than another
 scalar/sinusoidal sweep, another plain AR-initialized full-mask/continuation
 run, a simple LR/freeze schedule, single-token next-token CE, or single-token
-next-token KL, or teacher-forced span KL. The AR control makes this more
-specific: the same data/model can learn coherent causal language modeling, but
-the current diffusion objective and sampler still destroy continuation quality.
-The next useful work should change the bridge between AR and diffusion more
-fundamentally, for example by training against sampled AR rollouts instead of
-teacher-forced gold spans, or by keeping more of the AR decode trajectory intact
-during diffusion training.
+next-token KL, teacher-forced span KL, or a causal-attention-only swap. The AR
+control makes this more specific: the same data/model can learn coherent causal
+language modeling, but the current diffusion objective and sampler still destroy
+continuation quality. The next useful work should change the bridge between AR
+and diffusion more fundamentally, for example by training against sampled AR
+rollouts instead of teacher-forced gold spans, or by keeping more of the AR
+decode trajectory intact during diffusion training.
