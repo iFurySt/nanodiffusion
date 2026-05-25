@@ -1143,6 +1143,41 @@ evaluation loss, and the samples still showed the same capital/life loops plus
 non-code Fibonacci continuations. The current sampled-rollout block objective
 does not appear to be fixed by simply mixing CE back into the KL target.
 
+The next check moved the progressive KL-only rollout prefix distribution toward
+short fixed prompts by using `PREFIX_MIN_FRAC=0.0` and `PREFIX_MAX_FRAC=0.05`.
+This did not help:
+
+```text
+model_tag: diffusion_a100_d20_s1024_1k_arinit_causal_arrollout8_prog4_klonly_p005_ltr_20s
+source_checkpoint: ar_d20_s1024_1k_20s_control step 1000
+ar_teacher: ar_d20_s1024_1k_20s_control step 1000
+attention_mode: causal
+mask_pattern: suffix_span_all
+prefix_min_frac: 0.0
+prefix_max_frac: 0.05
+span_tokens: 8
+ce_loss_weight: 0
+ar_teacher_kl_weight: 1.0
+ar_rollout_tokens: 8
+ar_rollout_objective: progressive
+ar_rollout_train_tokens: 4
+ar_rollout_temperature: 0.8
+ar_rollout_top_k: 50
+sample_reveal_strategy: left_to_right
+sample_block_size: 4
+validation_loss_curve: 7.772227 -> 6.821544 -> 6.480984
+final_eval_loss: 6.532379
+runtime: 121.74m
+peak_memory: 43908 MiB
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_arinit_causal_arrollout8_prog4_klonly_p005_ltr_20s-20260525-234701.md
+```
+
+Short-prefix rollout training made the objective harder and samples worse:
+France drifted into population/species/largest-city fragments, meaning-of-life
+collapsed into "of"/"death"/"life" loops, and Fibonacci still did not produce
+code. The fixed-prompt failure is therefore not just caused by the previous
+25%-75% prefix-length training distribution.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:
