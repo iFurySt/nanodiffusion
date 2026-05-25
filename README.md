@@ -200,6 +200,7 @@ MASK_PATTERN=suffix_span_all SPAN_TOKENS=64 LOSS_NORMALIZATION=eligible MASK_LOS
 ATTENTION_MODE=causal MASK_PATTERN=prefix_next LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 MASK_SAMPLING=antithetic SAMPLE_REVEAL_STRATEGY=left_to_right SAMPLE_BLOCK_SIZE=1 bash runs/diffusion_speedrun_a100.sh
 ATTENTION_MODE=causal MASK_PATTERN=suffix_span_all SPAN_TOKENS=8 LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 MASK_SAMPLING=antithetic AR_TEACHER_MODEL_TAG=ar_d20_s1024_1k_20s_control AR_TEACHER_STEP=1000 AR_ROLLOUT_TOKENS=8 AR_ROLLOUT_TEMPERATURE=0.8 AR_ROLLOUT_TOP_K=50 SAMPLE_REVEAL_STRATEGY=left_to_right SAMPLE_BLOCK_SIZE=4 bash runs/diffusion_speedrun_a100.sh
 ATTENTION_MODE=causal MASK_PATTERN=suffix_span_all SPAN_TOKENS=8 LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 MASK_SAMPLING=antithetic AR_TEACHER_MODEL_TAG=ar_d20_s1024_1k_20s_control AR_TEACHER_STEP=1000 AR_ROLLOUT_TOKENS=8 AR_ROLLOUT_OBJECTIVE=progressive AR_ROLLOUT_TRAIN_TOKENS=1 AR_ROLLOUT_TEMPERATURE=0.8 AR_ROLLOUT_TOP_K=50 SAMPLE_REVEAL_STRATEGY=left_to_right SAMPLE_BLOCK_SIZE=1 bash runs/diffusion_speedrun_a100.sh
+ATTENTION_MODE=causal MASK_PATTERN=suffix_span_all SPAN_TOKENS=8 LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 MASK_SAMPLING=antithetic AR_TEACHER_MODEL_TAG=ar_d20_s1024_1k_20s_control AR_TEACHER_STEP=1000 AR_TEACHER_KL_WEIGHT=1.0 CE_LOSS_WEIGHT=0 AR_ROLLOUT_TOKENS=8 AR_ROLLOUT_OBJECTIVE=progressive AR_ROLLOUT_TRAIN_TOKENS=4 AR_ROLLOUT_TEMPERATURE=0.8 AR_ROLLOUT_TOP_K=50 SAMPLE_REVEAL_STRATEGY=left_to_right SAMPLE_BLOCK_SIZE=4 bash runs/diffusion_speedrun_a100.sh
 ```
 
 The defaults keep the original simple LLaDA/MDLM-style objective: sampled mask
@@ -1077,6 +1078,39 @@ The block target is less pathological than the one-token variant, but samples
 still collapse: France drifts into numeric/geography fragments, meaning-of-life
 loops on generic "of/the/process/current" text, and Fibonacci remains non-code.
 Chunk CE alone is therefore not the missing bridge.
+
+Replacing chunk CE with teacher-distribution KL on the same progressive rollout
+states lowered the validation loss substantially, but still failed the fixed
+prompt sample gate:
+
+```text
+model_tag: diffusion_a100_d20_s1024_1k_arinit_causal_arrollout8_prog4_klonly_ltr_20s
+source_checkpoint: ar_d20_s1024_1k_20s_control step 1000
+ar_teacher: ar_d20_s1024_1k_20s_control step 1000
+attention_mode: causal
+mask_pattern: suffix_span_all
+span_tokens: 8
+ce_loss_weight: 0
+ar_teacher_kl_weight: 1.0
+ar_rollout_tokens: 8
+ar_rollout_objective: progressive
+ar_rollout_train_tokens: 4
+ar_rollout_temperature: 0.8
+ar_rollout_top_k: 50
+sample_reveal_strategy: left_to_right
+sample_block_size: 4
+validation_loss_curve: 7.481161 -> 6.411296 -> 5.974178
+final_eval_loss: 6.008960
+runtime: 121.67m
+peak_memory: 43908 MiB
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_arinit_causal_arrollout8_prog4_klonly_ltr_20s-20260525-191014.md
+```
+
+This is the best loss among the sampled-rollout variants so far, but the
+samples remain unusable: France still loops around "capital", meaning-of-life
+continues with generic repeated phrasing, and Fibonacci does not become code.
+Distribution KL helps the rollout training signal, but it is not enough to make
+the current diffusion sampler behave like the AR teacher.
 
 ## Evaluate And Sample
 

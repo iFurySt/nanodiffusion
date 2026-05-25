@@ -673,6 +673,21 @@ Known evidence:
   "of/the/process/current" text, and Fibonacci remains non-code. Chunk CE alone
   is therefore not the missing bridge. Report:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_arinit_causal_arrollout8_prog4_ltr_20s-20260525-170154.md`.
+- Progressive sampled AR rollout training now supports `--ce-loss-weight`, so
+  explicit rollout masks can be trained with teacher-distribution KL only. The
+  KL-only chunked progressive pilot
+  `diffusion_a100_d20_s1024_1k_arinit_causal_arrollout8_prog4_klonly_ltr_20s`
+  used the same AR-initialized causal setup as the chunked CE run with
+  `AR_TEACHER_KL_WEIGHT=1.0`, `CE_LOSS_WEIGHT=0`, `AR_ROLLOUT_TRAIN_TOKENS=4`,
+  and left-to-right block-4 final sampling. It completed in 121.67 minutes at
+  43,908 MiB peak memory, with validation
+  `7.481161 -> 6.411296 -> 5.974178` and final eval `6.008960`. This is the
+  best loss among the sampled-rollout variants so far, but it still failed the
+  sample gate: France loops around "capital", meaning-of-life remains generic
+  and repetitive, and Fibonacci remains non-code. Distribution KL improves the
+  rollout training signal, but it does not make the current diffusion sampler
+  behave like the AR teacher. Report:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_arinit_causal_arrollout8_prog4_klonly_ltr_20s-20260525-191014.md`.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -889,14 +904,16 @@ AR-initialized full-mask CE fine-tuning, and AR-initialized mixed
 continuation-span fine-tuning, and frozen-matrix/low-LR AR-initialized
 fine-tuning, AR-initialized prefix-next left-to-right bridging, prefix-next
 AR-teacher KL, teacher-forced multi-token span KL, causal prefix-next
-diffusion, fully masked sampled AR rollout span training, and one-token
-or four-token progressive sampled AR rollout training have not cleared the
+diffusion, fully masked sampled AR rollout span training, one-token
+or four-token progressive sampled AR rollout CE training, and four-token
+progressive sampled AR rollout KL-only training have not cleared the
 sample gate. More of the same recipe should be avoided; the next candidate
 needs a broader change than another
 scalar/sinusoidal sweep, another plain AR-initialized full-mask/continuation
 run, a simple LR/freeze schedule, single-token next-token CE, or single-token
 next-token KL, teacher-forced span KL, a causal-attention-only swap, or a fully
-masked sampled-rollout span or one/four-token progressive rollout. The AR
+masked sampled-rollout span or one/four-token progressive rollout CE/KL variant.
+The AR
 control makes this more specific: the same data/model can learn coherent causal
 language modeling, but the current diffusion objective and sampler still
 destroy continuation quality. The next useful work should change the bridge
