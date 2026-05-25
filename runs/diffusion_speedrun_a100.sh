@@ -20,6 +20,7 @@ MODEL_TAG="${MODEL_TAG:-diffusion_a100_d20_s2048_5k}"
 RUN_NAME="${RUN_NAME:-$MODEL_TAG}"
 DEPTH="${DEPTH:-20}"
 MAX_SEQ_LEN="${MAX_SEQ_LEN:-2048}"
+ATTENTION_MODE="${ATTENTION_MODE:-bidirectional}"
 DEVICE_BATCH_SIZE="${DEVICE_BATCH_SIZE:-16}"
 TOTAL_BATCH_SIZE="${TOTAL_BATCH_SIZE:-524288}"
 TRAIN_STEPS="${TRAIN_STEPS:-5000}"
@@ -146,6 +147,7 @@ append_report "- data_shards: \`$DATA_SHARDS\`"
 append_report "- vocab_size: \`$VOCAB_SIZE\`"
 append_report "- depth: \`$DEPTH\`"
 append_report "- max_seq_len: \`$MAX_SEQ_LEN\`"
+append_report "- attention_mode: \`$ATTENTION_MODE\`"
 append_report "- train_steps: \`$TRAIN_STEPS\`"
 append_report "- resume_from_step: \`$RESUME_FROM_STEP\`"
 append_report "- embedding_lr: \`$EMBEDDING_LR\`"
@@ -213,6 +215,7 @@ run_python -m torch.distributed.run --standalone --nproc_per_node="$NPROC_PER_NO
   --run="$RUN_NAME" \
   --depth="$DEPTH" \
   --max-seq-len="$MAX_SEQ_LEN" \
+  --attention-mode="$ATTENTION_MODE" \
   --device-batch-size="$DEVICE_BATCH_SIZE" \
   --total-batch-size="$TOTAL_BATCH_SIZE" \
   --num-iterations="$TRAIN_STEPS" \

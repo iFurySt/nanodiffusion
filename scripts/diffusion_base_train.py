@@ -63,6 +63,7 @@ def parse_args():
     parser.add_argument("--aspect-ratio", type=int, default=64, help="model_dim = depth * aspect_ratio")
     parser.add_argument("--head-dim", type=int, default=128)
     parser.add_argument("--max-seq-len", type=int, default=2048)
+    parser.add_argument("--attention-mode", type=str, default="bidirectional", choices=["bidirectional", "causal"])
     # Optimization
     parser.add_argument("--num-iterations", type=int, default=-1)
     parser.add_argument("--target-param-data-ratio", type=float, default=12)
@@ -119,7 +120,7 @@ def build_model_meta(args, vocab_size):
         n_kv_head=num_heads,
         n_embd=model_dim,
         window_pattern="L",
-        attention_mode="bidirectional",
+        attention_mode=args.attention_mode,
         diffusion_sigma_conditioning=args.diffusion_sigma_conditioning,
         diffusion_sigma_layer_conditioning=args.diffusion_sigma_layer_conditioning,
         diffusion_sigma_adaln_conditioning=args.diffusion_sigma_adaln_conditioning,
@@ -496,6 +497,7 @@ def main():
             "Mask sampling": args.mask_sampling,
             "Loss objective": args.loss_objective,
             "Score parameterization": args.score_parameterization,
+            "Attention mode": args.attention_mode,
             "AR teacher model tag": args.ar_teacher_model_tag,
             "AR teacher step": args.ar_teacher_step,
             "AR teacher KL weight": args.ar_teacher_kl_weight,

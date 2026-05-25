@@ -13,7 +13,7 @@ from nanochat.diffusion import (
     sample_masked_diffusion,
 )
 from nanochat.gpt import GPT, GPTConfig
-from scripts.diffusion_base_train import copy_compatible_initialization_weights
+from scripts.diffusion_base_train import build_model_meta, copy_compatible_initialization_weights
 from scripts.diffusion_chat_sft import sft_loader
 
 
@@ -1018,3 +1018,23 @@ def test_sft_loader_wraps_rank_cursor_for_tiny_datasets():
 
     assert clean_ids.tolist() == [[1, 2, 3, 0, 0]]
     assert eligible_mask.tolist() == [[False, True, True, False, False]]
+
+
+def test_diffusion_train_builds_causal_model_when_requested():
+    args = SimpleNamespace(
+        depth=2,
+        aspect_ratio=16,
+        head_dim=16,
+        max_seq_len=8,
+        attention_mode="causal",
+        diffusion_sigma_conditioning=False,
+        diffusion_sigma_layer_conditioning=False,
+        diffusion_sigma_adaln_conditioning=False,
+        diffusion_sigma_embedding="scalar",
+        diffusion_sigma_embedding_dim=256,
+    )
+
+    model = build_model_meta(args, vocab_size=17)
+
+    assert model.config.attention_mode == "causal"
+    assert all(window[1] == 0 for window in model.window_sizes)
