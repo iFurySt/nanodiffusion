@@ -13,7 +13,12 @@ from nanochat.diffusion import (
     sample_masked_diffusion,
 )
 from nanochat.gpt import GPT, GPTConfig
-from scripts.diffusion_base_train import build_model_meta, copy_compatible_initialization_weights, make_ar_rollout_span_batch
+from scripts.diffusion_base_train import (
+    build_model_meta,
+    copy_compatible_initialization_weights,
+    make_ar_rollout_sequence_batches,
+    make_ar_rollout_span_batch,
+)
 from scripts.diffusion_chat_sft import sft_loader
 
 
@@ -646,6 +651,46 @@ def test_ar_rollout_progressive_batch_keeps_previous_rollout_tokens_visible():
         assert 2 <= target_pos < 5
         assert not force_mask[row, : target_pos + 1].any()
         assert force_mask[row, target_pos + 1 :].all()
+    assert rollout_ids[:, 2:5].tolist() == [[7, 7, 7], [7, 7, 7]]
+
+
+def test_ar_rollout_sequence_batches_reveal_previous_rollout_tokens():
+    teacher = FixedTeacherModel(vocab_size=16)
+    clean = torch.arange(16, dtype=torch.long).view(2, 8)
+    args = SimpleNamespace(
+        ar_rollout_tokens=3,
+        ar_rollout_objective="progressive_sequence",
+        ar_rollout_train_tokens=2,
+        ar_teacher_model_tag="teacher",
+        mask_pattern="suffix_span_all",
+        prefix_min_frac=0.25,
+        prefix_max_frac=0.25,
+        ar_rollout_temperature=0.0,
+        ar_rollout_top_k=0,
+    )
+    generator = torch.Generator(device=clean.device).manual_seed(0)
+
+    rollout_ids, mask_pairs = make_ar_rollout_sequence_batches(teacher, clean, args, generator=generator)
+
+    assert len(mask_pairs) == 2
+    first_eligible, first_force = mask_pairs[0]
+    second_eligible, second_force = mask_pairs[1]
+    assert first_eligible.tolist() == [
+        [False, False, True, False, False, False, False, False],
+        [False, False, True, False, False, False, False, False],
+    ]
+    assert second_eligible.tolist() == [
+        [False, False, False, True, False, False, False, False],
+        [False, False, False, True, False, False, False, False],
+    ]
+    assert first_force.tolist() == [
+        [False, False, False, True, True, True, True, True],
+        [False, False, False, True, True, True, True, True],
+    ]
+    assert second_force.tolist() == [
+        [False, False, False, False, True, True, True, True],
+        [False, False, False, False, True, True, True, True],
+    ]
     assert rollout_ids[:, 2:5].tolist() == [[7, 7, 7], [7, 7, 7]]
 
 

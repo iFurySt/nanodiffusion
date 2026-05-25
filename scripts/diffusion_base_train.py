@@ -101,7 +101,12 @@ def parse_args():
     parser.add_argument("--ar-teacher-kl-weight", type=float, default=0.0)
     parser.add_argument("--ar-teacher-temperature", type=float, default=1.0)
     parser.add_argument("--ar-rollout-tokens", type=int, default=0)
-    parser.add_argument("--ar-rollout-objective", type=str, default="span", choices=["span", "progressive"])
+    parser.add_argument(
+        "--ar-rollout-objective",
+        type=str,
+        default="span",
+        choices=["span", "progressive", "progressive_sequence"],
+    )
     parser.add_argument("--ar-rollout-train-tokens", type=int, default=1)
     parser.add_argument("--ar-rollout-temperature", type=float, default=0.8)
     parser.add_argument("--ar-rollout-top-k", type=int, default=50)
@@ -276,6 +281,54 @@ def make_ar_rollout_span_batch(teacher_model, clean_ids, args, generator=None):
         eligible_mask = (positions >= target_starts) & (positions < target_ends)
         force_mask = positions >= target_ends
     return rollout_ids, eligible_mask, force_mask
+
+
+@torch.no_grad()
+def make_ar_rollout_sequence_batches(teacher_model, clean_ids, args, generator=None):
+    assert args.ar_rollout_tokens > 0
+    assert args.ar_rollout_train_tokens > 0
+    assert args.ar_teacher_model_tag is not None, "AR rollout requires --ar-teacher-model-tag"
+    assert args.mask_pattern in {"suffix_span_all", "suffix_all"}, (
+        "AR rollout currently expects continuation-span mask patterns"
+    )
+    B, T = clean_ids.shape
+    device = clean_ids.device
+    min_prefix = min(T - 1, max(1, round(T * args.prefix_min_frac)))
+    max_prefix = min(T - 1, max(min_prefix, round(T * args.prefix_max_frac)))
+    prefix_lens = torch.randint(min_prefix, max_prefix + 1, (B, 1), device=device, generator=generator)
+    positions = torch.arange(T, device=device).view(1, T)
+    span_ends = torch.clamp(prefix_lens + args.ar_rollout_tokens, max=T)
+
+    rollout_ids = clean_ids.clone()
+    for offset in range(args.ar_rollout_tokens):
+        target_positions = prefix_lens.squeeze(1) + offset
+        active = target_positions < T
+        if not active.any():
+            break
+        active_rows = active.nonzero(as_tuple=False).flatten()
+        prev_positions = target_positions[active_rows] - 1
+        logits = teacher_model(rollout_ids)
+        next_logits = logits[active_rows, prev_positions]
+        sampled = sample_top_k_logits(
+            next_logits,
+            temperature=args.ar_rollout_temperature,
+            top_k=args.ar_rollout_top_k,
+        )
+        rollout_ids[active_rows, target_positions[active_rows]] = sampled
+
+    span_lengths = (span_ends - prefix_lens).clamp_min(1)
+    start_choices = (span_lengths - args.ar_rollout_train_tokens + 1).clamp_min(1)
+    offsets = (torch.rand((B, 1), device=device, generator=generator) * start_choices).long()
+    target_starts = prefix_lens + offsets
+
+    mask_pairs = []
+    for offset in range(args.ar_rollout_train_tokens):
+        target_positions = target_starts + offset
+        active_targets = target_positions < span_ends
+        eligible_mask = (positions == target_positions) & active_targets
+        force_mask = positions > target_positions
+        mask_pairs.append((eligible_mask, force_mask))
+    return rollout_ids, mask_pairs
 
 
 @torch.inference_mode()
@@ -490,7 +543,53 @@ def main():
             explicit_force_mask = None
             explicit_mask_all_eligible = False
             loss_mask_pattern = args.mask_pattern
-            if args.ar_rollout_tokens > 0:
+            already_backward = False
+            if args.ar_rollout_tokens > 0 and args.ar_rollout_objective == "progressive_sequence":
+                loss_clean_ids, sequence_masks = make_ar_rollout_sequence_batches(
+                    teacher_model,
+                    clean_ids,
+                    args,
+                )
+                metric_sums = None
+                train_loss = torch.zeros((), device=device)
+                for sequence_eligible_mask, sequence_force_mask in sequence_masks:
+                    sequence_loss, sequence_metrics = masked_diffusion_loss(
+                        train_model,
+                        loss_clean_ids,
+                        mask_token_id,
+                        eps=args.mask_eps,
+                        max_mask_prob=args.mask_max_prob,
+                        loss_reweight=not args.no_mask_loss_reweight,
+                        mask_pattern="full",
+                        min_prefix_frac=args.prefix_min_frac,
+                        max_prefix_frac=args.prefix_max_frac,
+                        span_tokens=args.span_tokens,
+                        loss_normalization=args.loss_normalization,
+                        mask_sampling=args.mask_sampling,
+                        loss_objective=args.loss_objective,
+                        ce_loss_weight=args.ce_loss_weight,
+                        score_parameterization=args.score_parameterization,
+                        eligible_mask=sequence_eligible_mask,
+                        force_mask=sequence_force_mask,
+                        mask_all_eligible=True,
+                        teacher_model=teacher_model,
+                        teacher_kl_weight=args.ar_teacher_kl_weight,
+                        teacher_temperature=args.ar_teacher_temperature,
+                    )
+                    scaled_loss = sequence_loss / len(sequence_masks)
+                    (scaled_loss / grad_accum_steps).backward()
+                    train_loss = train_loss + scaled_loss.detach()
+                    if metric_sums is None:
+                        metric_sums = {
+                            name: value.detach() / len(sequence_masks)
+                            for name, value in sequence_metrics.items()
+                        }
+                    else:
+                        for name, value in sequence_metrics.items():
+                            metric_sums[name] = metric_sums[name] + value.detach() / len(sequence_masks)
+                metrics = metric_sums
+                already_backward = True
+            elif args.ar_rollout_tokens > 0:
                 loss_clean_ids, explicit_eligible_mask, explicit_force_mask = make_ar_rollout_span_batch(
                     teacher_model,
                     clean_ids,
@@ -498,31 +597,32 @@ def main():
                 )
                 explicit_mask_all_eligible = True
                 loss_mask_pattern = "full"
-            loss, metrics = masked_diffusion_loss(
-                train_model,
-                loss_clean_ids,
-                mask_token_id,
-                eps=args.mask_eps,
-                max_mask_prob=args.mask_max_prob,
-                loss_reweight=not args.no_mask_loss_reweight,
-                mask_pattern=loss_mask_pattern,
-                min_prefix_frac=args.prefix_min_frac,
-                max_prefix_frac=args.prefix_max_frac,
-                span_tokens=args.span_tokens,
-                loss_normalization=args.loss_normalization,
-                mask_sampling=args.mask_sampling,
-                loss_objective=args.loss_objective,
-                ce_loss_weight=args.ce_loss_weight,
-                score_parameterization=args.score_parameterization,
-                eligible_mask=explicit_eligible_mask,
-                force_mask=explicit_force_mask,
-                mask_all_eligible=explicit_mask_all_eligible,
-                teacher_model=teacher_model,
-                teacher_kl_weight=args.ar_teacher_kl_weight,
-                teacher_temperature=args.ar_teacher_temperature,
-            )
-            train_loss = loss.detach()
-            (loss / grad_accum_steps).backward()
+            if not already_backward:
+                loss, metrics = masked_diffusion_loss(
+                    train_model,
+                    loss_clean_ids,
+                    mask_token_id,
+                    eps=args.mask_eps,
+                    max_mask_prob=args.mask_max_prob,
+                    loss_reweight=not args.no_mask_loss_reweight,
+                    mask_pattern=loss_mask_pattern,
+                    min_prefix_frac=args.prefix_min_frac,
+                    max_prefix_frac=args.prefix_max_frac,
+                    span_tokens=args.span_tokens,
+                    loss_normalization=args.loss_normalization,
+                    mask_sampling=args.mask_sampling,
+                    loss_objective=args.loss_objective,
+                    ce_loss_weight=args.ce_loss_weight,
+                    score_parameterization=args.score_parameterization,
+                    eligible_mask=explicit_eligible_mask,
+                    force_mask=explicit_force_mask,
+                    mask_all_eligible=explicit_mask_all_eligible,
+                    teacher_model=teacher_model,
+                    teacher_kl_weight=args.ar_teacher_kl_weight,
+                    teacher_temperature=args.ar_teacher_temperature,
+                )
+                train_loss = loss.detach()
+                (loss / grad_accum_steps).backward()
             clean_ids, _next_token_targets, dataloader_state_dict = next(train_loader)
 
         lrm = get_lr_multiplier(step)
