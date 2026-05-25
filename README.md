@@ -196,6 +196,7 @@ DIFFUSION_SIGMA_ADALN_CONDITIONING=1 LOSS_OBJECTIVE=score_entropy SCORE_PARAMETE
 DIFFUSION_SIGMA_ADALN_CONDITIONING=1 DIFFUSION_SIGMA_EMBEDDING=sinusoidal LOSS_OBJECTIVE=score_entropy SCORE_PARAMETERIZATION=sigma_scaled MASK_MAX_PROB=0.999 MASK_SAMPLING=antithetic bash runs/diffusion_speedrun_a100.sh
 MASK_PATTERN=prefix_next LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 MASK_SAMPLING=antithetic SAMPLE_REVEAL_STRATEGY=left_to_right SAMPLE_BLOCK_SIZE=1 bash runs/diffusion_speedrun_a100.sh
 MASK_PATTERN=prefix_next LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 MASK_SAMPLING=antithetic AR_TEACHER_MODEL_TAG=ar_d20_s1024_1k_20s_control AR_TEACHER_STEP=1000 AR_TEACHER_KL_WEIGHT=1.0 SAMPLE_REVEAL_STRATEGY=left_to_right SAMPLE_BLOCK_SIZE=1 bash runs/diffusion_speedrun_a100.sh
+MASK_PATTERN=suffix_span_all SPAN_TOKENS=64 LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 MASK_SAMPLING=antithetic AR_TEACHER_MODEL_TAG=ar_d20_s1024_1k_20s_control AR_TEACHER_STEP=1000 AR_TEACHER_KL_WEIGHT=1.0 SAMPLE_REVEAL_STRATEGY=left_to_right SAMPLE_BLOCK_SIZE=4 bash runs/diffusion_speedrun_a100.sh
 ```
 
 The defaults keep the original simple LLaDA/MDLM-style objective: sampled mask
@@ -934,6 +935,29 @@ Greedy samples collapse mostly to comma repetition, left-to-right France and
 meaning-of-life samples produce weak sentence fragments, and the Fibonacci
 prompt remains non-code. Preserving the AR next-token distribution with a
 single-token diffusion target is therefore still not enough.
+
+Extending that KL to a fully masked 64-token continuation span was worse:
+
+```text
+model_tag: diffusion_a100_d20_s1024_1k_arinit_teacherkl1_span64_ltr_20s
+source_checkpoint: ar_d20_s1024_1k_20s_control step 1000
+ar_teacher: ar_d20_s1024_1k_20s_control step 1000
+ar_teacher_kl_weight: 1.0
+mask_pattern: suffix_span_all
+span_tokens: 64
+sample_reveal_strategy: left_to_right
+sample_block_size: 4
+validation_loss_curve: 9.268512 -> 6.802525 -> 6.603037
+final_eval_loss: 6.591874
+runtime: 43.09m
+peak_memory: 44030 MiB
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_arinit_teacherkl1_span64_ltr_20s-20260525-111351.md
+```
+
+The fixed-prompt samples collapsed into prompt-keyword loops: France repeats
+"capital", meaning-of-life repeats "life/meaning", and Fibonacci repeats
+"acc/on/fib" fragments. Teacher-forced span KL is therefore not a viable bridge
+by itself.
 
 ## Evaluate And Sample
 

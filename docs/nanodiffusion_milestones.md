@@ -591,6 +591,22 @@ Known evidence:
   and Fibonacci remains non-code. A single-token diffusion bridge with direct
   AR next-token KL is therefore not sufficient. Report:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_arinit_teacherkl1_prefix_next_ltr_20s-20260522-183017.md`.
+- The AR teacher KL path was extended from single-token `prefix_next` to fully
+  masked continuation spans (`suffix_all` and `suffix_span_all`) so the diffusion
+  student can receive AR next-token distribution targets over every token in a
+  masked block.
+- The AR-teacher 64-token span pilot
+  `diffusion_a100_d20_s1024_1k_arinit_teacherkl1_span64_ltr_20s` used the same
+  AR checkpoint for initialization and teacher logits, `MASK_PATTERN=suffix_span_all`,
+  `SPAN_TOKENS=64`, `AR_TEACHER_KL_WEIGHT=1.0`, eligible normalization, no
+  `/p_mask` reweighting, antithetic masks, and left-to-right block-4 final
+  sampling. It completed in 43.09 minutes at 44,030 MiB peak memory, with
+  validation `9.268512 -> 6.802525 -> 6.603037` and final eval `6.591874`.
+  This is worse than single-token teacher KL and fails the sample gate: France
+  repeats "capital", meaning-of-life repeats "life/meaning", and Fibonacci
+  repeats "acc/on/fib" fragments. Teacher-forced span KL is therefore not a
+  viable bridge by itself. Report:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_arinit_teacherkl1_span64_ltr_20s-20260525-111351.md`.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -805,14 +821,16 @@ conditioning through input, per-layer residual injection, AdaLN, sinusoidal
 sigma conditioning, AR-initialized score-entropy fine-tuning,
 AR-initialized full-mask CE fine-tuning, and AR-initialized mixed
 continuation-span fine-tuning, and frozen-matrix/low-LR AR-initialized
-fine-tuning, AR-initialized prefix-next left-to-right bridging, and prefix-next
-AR-teacher KL have not cleared the sample gate. More of the same recipe should
-be avoided; the next candidate needs a broader change than another
+fine-tuning, AR-initialized prefix-next left-to-right bridging, prefix-next
+AR-teacher KL, and teacher-forced multi-token span KL have not cleared the
+sample gate. More of the same recipe should be avoided; the next candidate needs
+a broader change than another
 scalar/sinusoidal sweep, another plain AR-initialized full-mask/continuation
 run, a simple LR/freeze schedule, single-token next-token CE, or single-token
-next-token KL. The AR control makes this more specific: the same data/model can
-learn coherent causal language modeling, but the current diffusion objective and
-sampler still destroy continuation quality. The next useful work should change
-the bridge between AR and diffusion more fundamentally, for example by training
-multi-token blocks against AR rollouts or keeping more of the AR decode
-trajectory intact during diffusion training.
+next-token KL, or teacher-forced span KL. The AR control makes this more
+specific: the same data/model can learn coherent causal language modeling, but
+the current diffusion objective and sampler still destroy continuation quality.
+The next useful work should change the bridge between AR and diffusion more
+fundamentally, for example by training against sampled AR rollouts instead of
+teacher-forced gold spans, or by keeping more of the AR decode trajectory intact
+during diffusion training.
