@@ -199,6 +199,7 @@ MASK_PATTERN=prefix_next LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 MASK_S
 MASK_PATTERN=suffix_span_all SPAN_TOKENS=64 LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 MASK_SAMPLING=antithetic AR_TEACHER_MODEL_TAG=ar_d20_s1024_1k_20s_control AR_TEACHER_STEP=1000 AR_TEACHER_KL_WEIGHT=1.0 SAMPLE_REVEAL_STRATEGY=left_to_right SAMPLE_BLOCK_SIZE=4 bash runs/diffusion_speedrun_a100.sh
 ATTENTION_MODE=causal MASK_PATTERN=prefix_next LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 MASK_SAMPLING=antithetic SAMPLE_REVEAL_STRATEGY=left_to_right SAMPLE_BLOCK_SIZE=1 bash runs/diffusion_speedrun_a100.sh
 ATTENTION_MODE=causal MASK_PATTERN=suffix_span_all SPAN_TOKENS=8 LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 MASK_SAMPLING=antithetic AR_TEACHER_MODEL_TAG=ar_d20_s1024_1k_20s_control AR_TEACHER_STEP=1000 AR_ROLLOUT_TOKENS=8 AR_ROLLOUT_TEMPERATURE=0.8 AR_ROLLOUT_TOP_K=50 SAMPLE_REVEAL_STRATEGY=left_to_right SAMPLE_BLOCK_SIZE=4 bash runs/diffusion_speedrun_a100.sh
+ATTENTION_MODE=causal MASK_PATTERN=suffix_span_all SPAN_TOKENS=8 LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 MASK_SAMPLING=antithetic AR_TEACHER_MODEL_TAG=ar_d20_s1024_1k_20s_control AR_TEACHER_STEP=1000 AR_ROLLOUT_TOKENS=8 AR_ROLLOUT_OBJECTIVE=progressive AR_ROLLOUT_TRAIN_TOKENS=1 AR_ROLLOUT_TEMPERATURE=0.8 AR_ROLLOUT_TOP_K=50 SAMPLE_REVEAL_STRATEGY=left_to_right SAMPLE_BLOCK_SIZE=1 bash runs/diffusion_speedrun_a100.sh
 ```
 
 The defaults keep the original simple LLaDA/MDLM-style objective: sampled mask
@@ -1015,6 +1016,37 @@ non-code with "New York", "on", and "acc" fragments. A fully masked sampled
 rollout span is therefore not enough; the next bridge likely needs to keep the
 left-to-right rollout trajectory visible inside the trained span, not only swap
 gold tokens for sampled tokens.
+
+The next pilot tried that narrower progressive rollout target: sample an
+8-token AR continuation, keep the earlier sampled rollout tokens visible, mask
+only one random target token from the rollout, and force-mask the remaining
+future suffix. This also failed and was worse than the fully masked span:
+
+```text
+model_tag: diffusion_a100_d20_s1024_1k_arinit_causal_arrollout8_prog1_ltr_20s
+source_checkpoint: ar_d20_s1024_1k_20s_control step 1000
+ar_teacher: ar_d20_s1024_1k_20s_control step 1000
+attention_mode: causal
+mask_pattern: suffix_span_all
+span_tokens: 8
+ar_rollout_tokens: 8
+ar_rollout_objective: progressive
+ar_rollout_train_tokens: 1
+ar_rollout_temperature: 0.8
+ar_rollout_top_k: 50
+sample_reveal_strategy: left_to_right
+sample_block_size: 1
+validation_loss_curve: 7.481161 -> 8.711047 -> 8.020581
+final_eval_loss: 8.095073
+runtime: 111.17m
+peak_memory: 39645 MiB
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_arinit_causal_arrollout8_prog1_ltr_20s-20260525-145727.md
+```
+
+Samples regressed into stronger prompt-keyword loops: France repeats "capital",
+meaning-of-life repeats "life", "times", and "climate", and Fibonacci collapses
+to "p"/"current"/"average" fragments. A one-token progressive sampled rollout
+objective is too sparse or too off-distribution to be a useful bridge by itself.
 
 ## Evaluate And Sample
 

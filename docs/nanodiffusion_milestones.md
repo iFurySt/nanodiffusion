@@ -642,6 +642,26 @@ Known evidence:
   with "New York", "on", and "acc" fragments. A fully masked sampled rollout
   span is therefore not sufficient. Report:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_arinit_causal_arrollout8_span_ltr_20s-20260525-124747.md`.
+- Sampled AR rollout training now also supports
+  `--ar-rollout-objective=progressive` and `--ar-rollout-train-tokens`. The
+  progressive path keeps earlier sampled rollout tokens visible and trains only
+  the next sampled token or small left-to-right block while force-masking the
+  future suffix.
+- The causal progressive AR-rollout pilot
+  `diffusion_a100_d20_s1024_1k_arinit_causal_arrollout8_prog1_ltr_20s` used
+  `ATTENTION_MODE=causal`, `MASK_PATTERN=suffix_span_all`, `SPAN_TOKENS=8`,
+  `AR_ROLLOUT_TOKENS=8`, `AR_ROLLOUT_OBJECTIVE=progressive`,
+  `AR_ROLLOUT_TRAIN_TOKENS=1`, teacher top-k 50 sampling at temperature 0.8,
+  eligible normalization, no `/p_mask` reweighting, antithetic masks, scalar
+  sigma conditioning, and left-to-right block-1 final sampling. It completed in
+  111.17 minutes at 39,645 MiB peak memory, with validation
+  `7.481161 -> 8.711047 -> 8.020581` and final eval `8.095073`. It failed
+  harder than the fully masked rollout span: France loops on "capital",
+  meaning-of-life loops on "life", "times", and "climate", and Fibonacci
+  collapses to "p"/"current"/"average" fragments. A one-token progressive
+  sampled rollout target is too sparse or too off-distribution to be a useful
+  bridge by itself. Report:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_arinit_causal_arrollout8_prog1_ltr_20s-20260525-145727.md`.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -858,17 +878,18 @@ AR-initialized full-mask CE fine-tuning, and AR-initialized mixed
 continuation-span fine-tuning, and frozen-matrix/low-LR AR-initialized
 fine-tuning, AR-initialized prefix-next left-to-right bridging, prefix-next
 AR-teacher KL, teacher-forced multi-token span KL, causal prefix-next
-diffusion, and fully masked sampled AR rollout span training have not cleared
-the sample gate. More of the same recipe should be avoided; the next candidate
-needs a broader change than another
+diffusion, fully masked sampled AR rollout span training, and one-token
+progressive sampled AR rollout training have not cleared the sample gate. More
+of the same recipe should be avoided; the next candidate needs a broader change
+than another
 scalar/sinusoidal sweep, another plain AR-initialized full-mask/continuation
 run, a simple LR/freeze schedule, single-token next-token CE, or single-token
 next-token KL, teacher-forced span KL, a causal-attention-only swap, or a fully
-masked sampled-rollout span. The AR control makes this more specific: the same
-data/model can learn coherent causal language modeling, but the current
-diffusion objective and sampler still destroy continuation quality. The next
-useful work should change the bridge between AR and diffusion more
-fundamentally, for example by training a progressive sampled rollout objective:
-sample an AR continuation, keep the preceding sampled rollout tokens visible,
-and train only the next unrevealed token or small left-to-right block instead of
-masking the whole sampled span at once.
+masked sampled-rollout span or one-token progressive rollout. The AR control
+makes this more specific: the same data/model can learn coherent causal
+language modeling, but the current diffusion objective and sampler still
+destroy continuation quality. The next useful work should change the bridge
+between AR and diffusion more fundamentally, for example by abandoning the
+single-token target in favor of a chunk-level consistency objective or by
+changing the sampler/training pair together instead of only changing which
+tokens are visible during CE training.
