@@ -623,6 +623,25 @@ Known evidence:
   repetition, meaning-of-life loops on "world/life", and Fibonacci remains
   non-code. Causal attention alone is therefore not sufficient. Report:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_arinit_causal_prefix_next_ltr_20s-20260525-120420.md`.
+- Base diffusion training now supports sampled AR rollout span batches via
+  `--ar-rollout-tokens`, `--ar-rollout-temperature`, and `--ar-rollout-top-k`.
+  When enabled, the AR teacher samples a continuation from a random prefix and
+  the diffusion student trains on that sampled span while the suffix after the
+  span remains forced masked. This tests whether sampled AR states are a better
+  bridge than teacher-forced gold spans.
+- The causal AR-rollout span pilot
+  `diffusion_a100_d20_s1024_1k_arinit_causal_arrollout8_span_ltr_20s` used
+  `ATTENTION_MODE=causal`, `MASK_PATTERN=suffix_span_all`, `SPAN_TOKENS=8`,
+  `AR_ROLLOUT_TOKENS=8`, teacher top-k 50 sampling at temperature 0.8, eligible
+  normalization, no `/p_mask` reweighting, antithetic masks, scalar sigma
+  conditioning, and left-to-right block-4 final sampling. It completed in
+  111.26 minutes at 39,645 MiB peak memory, with validation
+  `7.481161 -> 6.626956 -> 6.407933` and final eval `6.328695`. It failed the
+  sample gate: France repeats generic "first/most/world" phrases,
+  meaning-of-life repeats "life"/"most"/"same", and Fibonacci remains non-code
+  with "New York", "on", and "acc" fragments. A fully masked sampled rollout
+  span is therefore not sufficient. Report:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_arinit_causal_arrollout8_span_ltr_20s-20260525-124747.md`.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -838,15 +857,18 @@ sigma conditioning, AR-initialized score-entropy fine-tuning,
 AR-initialized full-mask CE fine-tuning, and AR-initialized mixed
 continuation-span fine-tuning, and frozen-matrix/low-LR AR-initialized
 fine-tuning, AR-initialized prefix-next left-to-right bridging, prefix-next
-AR-teacher KL, teacher-forced multi-token span KL, and causal prefix-next
-diffusion have not cleared the sample gate. More of the same recipe should be
-avoided; the next candidate needs a broader change than another
+AR-teacher KL, teacher-forced multi-token span KL, causal prefix-next
+diffusion, and fully masked sampled AR rollout span training have not cleared
+the sample gate. More of the same recipe should be avoided; the next candidate
+needs a broader change than another
 scalar/sinusoidal sweep, another plain AR-initialized full-mask/continuation
 run, a simple LR/freeze schedule, single-token next-token CE, or single-token
-next-token KL, teacher-forced span KL, or a causal-attention-only swap. The AR
-control makes this more specific: the same data/model can learn coherent causal
-language modeling, but the current diffusion objective and sampler still destroy
-continuation quality. The next useful work should change the bridge between AR
-and diffusion more fundamentally, for example by training against sampled AR
-rollouts instead of teacher-forced gold spans, or by keeping more of the AR
-decode trajectory intact during diffusion training.
+next-token KL, teacher-forced span KL, a causal-attention-only swap, or a fully
+masked sampled-rollout span. The AR control makes this more specific: the same
+data/model can learn coherent causal language modeling, but the current
+diffusion objective and sampler still destroy continuation quality. The next
+useful work should change the bridge between AR and diffusion more
+fundamentally, for example by training a progressive sampled rollout objective:
+sample an AR continuation, keep the preceding sampled rollout tokens visible,
+and train only the next unrevealed token or small left-to-right block instead of
+masking the whole sampled span at once.

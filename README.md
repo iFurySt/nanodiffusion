@@ -198,6 +198,7 @@ MASK_PATTERN=prefix_next LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 MASK_S
 MASK_PATTERN=prefix_next LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 MASK_SAMPLING=antithetic AR_TEACHER_MODEL_TAG=ar_d20_s1024_1k_20s_control AR_TEACHER_STEP=1000 AR_TEACHER_KL_WEIGHT=1.0 SAMPLE_REVEAL_STRATEGY=left_to_right SAMPLE_BLOCK_SIZE=1 bash runs/diffusion_speedrun_a100.sh
 MASK_PATTERN=suffix_span_all SPAN_TOKENS=64 LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 MASK_SAMPLING=antithetic AR_TEACHER_MODEL_TAG=ar_d20_s1024_1k_20s_control AR_TEACHER_STEP=1000 AR_TEACHER_KL_WEIGHT=1.0 SAMPLE_REVEAL_STRATEGY=left_to_right SAMPLE_BLOCK_SIZE=4 bash runs/diffusion_speedrun_a100.sh
 ATTENTION_MODE=causal MASK_PATTERN=prefix_next LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 MASK_SAMPLING=antithetic SAMPLE_REVEAL_STRATEGY=left_to_right SAMPLE_BLOCK_SIZE=1 bash runs/diffusion_speedrun_a100.sh
+ATTENTION_MODE=causal MASK_PATTERN=suffix_span_all SPAN_TOKENS=8 LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 MASK_SAMPLING=antithetic AR_TEACHER_MODEL_TAG=ar_d20_s1024_1k_20s_control AR_TEACHER_STEP=1000 AR_ROLLOUT_TOKENS=8 AR_ROLLOUT_TEMPERATURE=0.8 AR_ROLLOUT_TOP_K=50 SAMPLE_REVEAL_STRATEGY=left_to_right SAMPLE_BLOCK_SIZE=4 bash runs/diffusion_speedrun_a100.sh
 ```
 
 The defaults keep the original simple LLaDA/MDLM-style objective: sampled mask
@@ -982,6 +983,38 @@ The samples are less punctuation-heavy than teacher-KL runs but still loop:
 France drifts into "largest"/"China" repetition, meaning-of-life loops on
 "world/life", and Fibonacci remains non-code. Causal attention alone is not
 enough.
+
+The speedrun can also sample continuation tokens from an AR teacher during
+training (`AR_ROLLOUT_TOKENS>0`) and train the diffusion model on that sampled
+span instead of a teacher-forced gold span. This tested whether exposing the
+student to AR rollout states closes the train/sample mismatch. The first A100
+pilot still failed:
+
+```text
+model_tag: diffusion_a100_d20_s1024_1k_arinit_causal_arrollout8_span_ltr_20s
+source_checkpoint: ar_d20_s1024_1k_20s_control step 1000
+ar_teacher: ar_d20_s1024_1k_20s_control step 1000
+attention_mode: causal
+mask_pattern: suffix_span_all
+span_tokens: 8
+ar_rollout_tokens: 8
+ar_rollout_temperature: 0.8
+ar_rollout_top_k: 50
+sample_reveal_strategy: left_to_right
+sample_block_size: 4
+validation_loss_curve: 7.481161 -> 6.626956 -> 6.407933
+final_eval_loss: 6.328695
+runtime: 111.26m
+peak_memory: 39645 MiB
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_arinit_causal_arrollout8_span_ltr_20s-20260525-124747.md
+```
+
+The fixed prompts remained unusable: France repeats common "first/most/world"
+phrases, meaning-of-life repeats "life"/"most"/"same", and Fibonacci is
+non-code with "New York", "on", and "acc" fragments. A fully masked sampled
+rollout span is therefore not enough; the next bridge likely needs to keep the
+left-to-right rollout trajectory visible inside the trained span, not only swap
+gold tokens for sampled tokens.
 
 ## Evaluate And Sample
 
