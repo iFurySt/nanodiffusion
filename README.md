@@ -1112,6 +1112,37 @@ continues with generic repeated phrasing, and Fibonacci does not become code.
 Distribution KL helps the rollout training signal, but it is not enough to make
 the current diffusion sampler behave like the AR teacher.
 
+Adding a small sampled-token CE term on top of the same KL target did not
+improve the outcome:
+
+```text
+model_tag: diffusion_a100_d20_s1024_1k_arinit_causal_arrollout8_prog4_ce01kl1_ltr_20s
+source_checkpoint: ar_d20_s1024_1k_20s_control step 1000
+ar_teacher: ar_d20_s1024_1k_20s_control step 1000
+attention_mode: causal
+mask_pattern: suffix_span_all
+span_tokens: 8
+ce_loss_weight: 0.1
+ar_teacher_kl_weight: 1.0
+ar_rollout_tokens: 8
+ar_rollout_objective: progressive
+ar_rollout_train_tokens: 4
+ar_rollout_temperature: 0.8
+ar_rollout_top_k: 50
+sample_reveal_strategy: left_to_right
+sample_block_size: 4
+validation_loss_curve: 7.481161 -> 6.441671 -> 5.995179
+final_eval_loss: 6.027285
+runtime: 121.71m
+peak_memory: 43908 MiB
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_arinit_causal_arrollout8_prog4_ce01kl1_ltr_20s-20260525-212757.md
+```
+
+The small CE term was slightly worse than KL-only on both midpoint and final
+evaluation loss, and the samples still showed the same capital/life loops plus
+non-code Fibonacci continuations. The current sampled-rollout block objective
+does not appear to be fixed by simply mixing CE back into the KL target.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:

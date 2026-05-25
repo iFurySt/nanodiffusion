@@ -688,6 +688,16 @@ Known evidence:
   rollout training signal, but it does not make the current diffusion sampler
   behave like the AR teacher. Report:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_arinit_causal_arrollout8_prog4_klonly_ltr_20s-20260525-191014.md`.
+- The same KL target with a small sampled-token CE term
+  `diffusion_a100_d20_s1024_1k_arinit_causal_arrollout8_prog4_ce01kl1_ltr_20s`
+  used `CE_LOSS_WEIGHT=0.1` and `AR_TEACHER_KL_WEIGHT=1.0`. It completed in
+  121.71 minutes at 43,908 MiB peak memory, with validation
+  `7.481161 -> 6.441671 -> 5.995179` and final eval `6.027285`. This was
+  slightly worse than KL-only on both midpoint and final evaluation loss, and
+  it still failed the sample gate with capital/life loops and non-code
+  Fibonacci continuations. Mixing a small CE term back into the sampled-rollout
+  KL target is therefore not enough. Report:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_1k_arinit_causal_arrollout8_prog4_ce01kl1_ltr_20s-20260525-212757.md`.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -906,7 +916,7 @@ fine-tuning, AR-initialized prefix-next left-to-right bridging, prefix-next
 AR-teacher KL, teacher-forced multi-token span KL, causal prefix-next
 diffusion, fully masked sampled AR rollout span training, one-token
 or four-token progressive sampled AR rollout CE training, and four-token
-progressive sampled AR rollout KL-only training have not cleared the
+progressive sampled AR rollout KL-only or CE+KL training have not cleared the
 sample gate. More of the same recipe should be avoided; the next candidate
 needs a broader change than another
 scalar/sinusoidal sweep, another plain AR-initialized full-mask/continuation
