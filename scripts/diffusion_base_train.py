@@ -193,7 +193,9 @@ def initialize_from_base_checkpoint(model, base_dir, args, device):
 def load_ar_teacher_model(args, device):
     if args.ar_teacher_model_tag is None or args.ar_teacher_kl_weight <= 0:
         return None
-    assert args.mask_pattern == "prefix_next", "AR teacher KL currently requires --mask-pattern=prefix_next"
+    assert args.mask_pattern in {"prefix_next", "suffix_all", "suffix_span_all"}, (
+        "AR teacher KL currently requires fully masked continuation targets"
+    )
     teacher_step = None if args.ar_teacher_step == -1 else args.ar_teacher_step
     print0(f"Loading AR teacher checkpoint {args.ar_teacher_model_tag} step {teacher_step or 'latest'}")
     teacher_model, _teacher_tokenizer, _teacher_meta = load_model(
