@@ -565,6 +565,8 @@ def test_ar_rollout_span_batch_builds_explicit_training_masks():
     clean = torch.arange(16, dtype=torch.long).view(2, 8)
     args = SimpleNamespace(
         ar_rollout_tokens=3,
+        ar_rollout_objective="span",
+        ar_rollout_train_tokens=1,
         ar_teacher_model_tag="teacher",
         mask_pattern="suffix_span_all",
         prefix_min_frac=0.25,
@@ -583,6 +585,34 @@ def test_ar_rollout_span_batch_builds_explicit_training_masks():
         [False, False, False, False, False, True, True, True],
         [False, False, False, False, False, True, True, True],
     ]
+    assert rollout_ids[:, 2:5].tolist() == [[7, 7, 7], [7, 7, 7]]
+
+
+def test_ar_rollout_progressive_batch_keeps_previous_rollout_tokens_visible():
+    teacher = FixedTeacherModel(vocab_size=16)
+    clean = torch.arange(16, dtype=torch.long).view(2, 8)
+    args = SimpleNamespace(
+        ar_rollout_tokens=3,
+        ar_rollout_objective="progressive",
+        ar_rollout_train_tokens=1,
+        ar_teacher_model_tag="teacher",
+        mask_pattern="suffix_span_all",
+        prefix_min_frac=0.25,
+        prefix_max_frac=0.25,
+        ar_rollout_temperature=0.0,
+        ar_rollout_top_k=0,
+    )
+    generator = torch.Generator(device=clean.device).manual_seed(0)
+
+    rollout_ids, eligible_mask, force_mask = make_ar_rollout_span_batch(teacher, clean, args, generator=generator)
+
+    target_counts = eligible_mask.sum(dim=1)
+    assert target_counts.tolist() == [1, 1]
+    for row in range(clean.size(0)):
+        target_pos = eligible_mask[row].nonzero(as_tuple=False).item()
+        assert 2 <= target_pos < 5
+        assert not force_mask[row, : target_pos + 1].any()
+        assert force_mask[row, target_pos + 1 :].all()
     assert rollout_ids[:, 2:5].tolist() == [[7, 7, 7], [7, 7, 7]]
 
 

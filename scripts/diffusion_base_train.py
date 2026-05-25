@@ -100,6 +100,8 @@ def parse_args():
     parser.add_argument("--ar-teacher-kl-weight", type=float, default=0.0)
     parser.add_argument("--ar-teacher-temperature", type=float, default=1.0)
     parser.add_argument("--ar-rollout-tokens", type=int, default=0)
+    parser.add_argument("--ar-rollout-objective", type=str, default="span", choices=["span", "progressive"])
+    parser.add_argument("--ar-rollout-train-tokens", type=int, default=1)
     parser.add_argument("--ar-rollout-temperature", type=float, default=0.8)
     parser.add_argument("--ar-rollout-top-k", type=int, default=50)
     parser.add_argument("--resume-from-step", type=int, default=-1)
@@ -229,17 +231,19 @@ def sample_top_k_logits(logits, temperature=0.8, top_k=50):
 
 
 @torch.no_grad()
-def make_ar_rollout_span_batch(teacher_model, clean_ids, args):
+def make_ar_rollout_span_batch(teacher_model, clean_ids, args, generator=None):
     assert args.ar_rollout_tokens > 0
+    assert args.ar_rollout_train_tokens > 0
     assert args.ar_teacher_model_tag is not None, "AR rollout requires --ar-teacher-model-tag"
     assert args.mask_pattern in {"suffix_span_all", "suffix_all"}, (
-        "AR rollout currently trains fully masked continuation spans"
+        "AR rollout currently expects continuation-span mask patterns"
     )
+    assert args.ar_rollout_objective in {"span", "progressive"}
     B, T = clean_ids.shape
     device = clean_ids.device
     min_prefix = min(T - 1, max(1, round(T * args.prefix_min_frac)))
     max_prefix = min(T - 1, max(min_prefix, round(T * args.prefix_max_frac)))
-    prefix_lens = torch.randint(min_prefix, max_prefix + 1, (B, 1), device=device)
+    prefix_lens = torch.randint(min_prefix, max_prefix + 1, (B, 1), device=device, generator=generator)
     positions = torch.arange(T, device=device).view(1, T)
     span_ends = torch.clamp(prefix_lens + args.ar_rollout_tokens, max=T)
 
@@ -260,8 +264,16 @@ def make_ar_rollout_span_batch(teacher_model, clean_ids, args):
         )
         rollout_ids[active_rows, target_positions[active_rows]] = sampled
 
-    eligible_mask = (positions >= prefix_lens) & (positions < span_ends)
-    force_mask = positions >= span_ends
+    if args.ar_rollout_objective == "span":
+        eligible_mask = (positions >= prefix_lens) & (positions < span_ends)
+        force_mask = positions >= span_ends
+    else:
+        span_lengths = (span_ends - prefix_lens).clamp_min(1)
+        offsets = (torch.rand((B, 1), device=device, generator=generator) * span_lengths).long()
+        target_starts = prefix_lens + offsets
+        target_ends = torch.minimum(target_starts + args.ar_rollout_train_tokens, span_ends)
+        eligible_mask = (positions >= target_starts) & (positions < target_ends)
+        force_mask = positions >= target_ends
     return rollout_ids, eligible_mask, force_mask
 
 
@@ -573,6 +585,8 @@ def main():
             "AR teacher KL weight": args.ar_teacher_kl_weight,
             "AR teacher temperature": args.ar_teacher_temperature,
             "AR rollout tokens": args.ar_rollout_tokens,
+            "AR rollout objective": args.ar_rollout_objective,
+            "AR rollout train tokens": args.ar_rollout_train_tokens,
             "AR rollout temperature": args.ar_rollout_temperature,
             "AR rollout top k": args.ar_rollout_top_k,
             "Diffusion sigma conditioning": args.diffusion_sigma_conditioning,
