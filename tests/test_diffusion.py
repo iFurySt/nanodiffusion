@@ -673,8 +673,8 @@ def test_ar_rollout_sequence_batches_reveal_previous_rollout_tokens():
     rollout_ids, mask_pairs = make_ar_rollout_sequence_batches(teacher, clean, args, generator=generator)
 
     assert len(mask_pairs) == 2
-    first_eligible, first_force = mask_pairs[0]
-    second_eligible, second_force = mask_pairs[1]
+    first_eligible, first_force, first_mask_prob = mask_pairs[0]
+    second_eligible, second_force, second_mask_prob = mask_pairs[1]
     assert first_eligible.tolist() == [
         [False, False, True, False, False, False, False, False],
         [False, False, True, False, False, False, False, False],
@@ -691,7 +691,34 @@ def test_ar_rollout_sequence_batches_reveal_previous_rollout_tokens():
         [False, False, False, False, True, True, True, True],
         [False, False, False, False, True, True, True, True],
     ]
+    assert first_mask_prob.tolist() == [[1.0], [1.0]]
+    assert second_mask_prob.tolist() == [[0.5], [0.5]]
     assert rollout_ids[:, 2:5].tolist() == [[7, 7, 7], [7, 7, 7]]
+
+
+def test_diffusion_loss_uses_explicit_mask_prob_override():
+    model = build_tiny_bidirectional_model(diffusion_sigma_conditioning=True)
+    clean = torch.randint(0, 16, (2, 8), dtype=torch.long)
+    eligible_mask = torch.zeros_like(clean, dtype=torch.bool)
+    eligible_mask[:, 2:3] = True
+    force_mask = torch.zeros_like(clean, dtype=torch.bool)
+    force_mask[:, 3:] = True
+    mask_prob_override = torch.full((2, 1), 0.5)
+
+    loss, metrics = masked_diffusion_loss(
+        model,
+        clean,
+        mask_token_id=16,
+        mask_pattern="full",
+        eligible_mask=eligible_mask,
+        force_mask=force_mask,
+        mask_all_eligible=True,
+        mask_prob_override=mask_prob_override,
+        loss_normalization="eligible",
+    )
+
+    assert loss.isfinite()
+    assert metrics["mask_prob"] == 0.5
 
 
 def test_diffusion_loss_accepts_explicit_force_mask_and_mask_all():

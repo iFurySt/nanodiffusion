@@ -116,6 +116,7 @@ def make_masked_batch(
     force_mask=None,
     mask_all_eligible=False,
     mask_sampling="uniform",
+    mask_prob_override=None,
 ):
     """
     Build one LLaDA/MDLM-style masked batch.
@@ -139,6 +140,10 @@ def make_masked_batch(
             shape (B, 1) to mix fully masked and randomly masked rows.
         mask_sampling: "uniform" samples each row independently; "antithetic"
             spreads row mask probabilities evenly across the batch.
+        mask_prob_override: optional float tensor of shape (B, 1) used as the
+            row noise level after mask construction. This is for explicitly
+            constructed states whose effective noise is not the same as the
+            fraction of eligible targets masked.
 
     Returns:
         DiffusionBatch where targets are -1 for unmasked positions.
@@ -181,6 +186,11 @@ def make_masked_batch(
     else:
         mask = (torch.rand((B, T), device=device, generator=generator) < mask_prob) & eligible_mask
 
+    if mask_prob_override is not None:
+        mask_prob = mask_prob_override.to(device=device, dtype=mask_prob.dtype)
+        assert mask_prob.shape == (B, 1)
+        assert (mask_prob > 0).all() and (mask_prob <= 1).all()
+
     # Keep every row trainable even for tiny smoke-test batches.
     eligible_rows = eligible_mask.any(dim=1)
     empty_rows = (~mask.any(dim=1)) & eligible_rows
@@ -221,6 +231,7 @@ def masked_diffusion_loss(
     ce_loss_weight=1.0,
     force_mask=None,
     mask_all_eligible=False,
+    mask_prob_override=None,
 ):
     """
     Compute the continuous-time masked diffusion objective.
@@ -321,6 +332,7 @@ def masked_diffusion_loss(
         force_mask=effective_force_mask,
         mask_all_eligible=effective_mask_all_eligible,
         mask_sampling=mask_sampling,
+        mask_prob_override=mask_prob_override,
     )
     model_sigma = None
     if (

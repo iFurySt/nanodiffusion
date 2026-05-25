@@ -327,7 +327,14 @@ def make_ar_rollout_sequence_batches(teacher_model, clean_ids, args, generator=N
         active_targets = target_positions < span_ends
         eligible_mask = (positions == target_positions) & active_targets
         force_mask = positions > target_positions
-        mask_pairs.append((eligible_mask, force_mask))
+        remaining_targets = args.ar_rollout_train_tokens - offset
+        mask_prob = torch.full(
+            (B, 1),
+            remaining_targets / args.ar_rollout_train_tokens,
+            device=device,
+            dtype=torch.float32,
+        )
+        mask_pairs.append((eligible_mask, force_mask, mask_prob))
     return rollout_ids, mask_pairs
 
 
@@ -552,7 +559,7 @@ def main():
                 )
                 metric_sums = None
                 train_loss = torch.zeros((), device=device)
-                for sequence_eligible_mask, sequence_force_mask in sequence_masks:
+                for sequence_eligible_mask, sequence_force_mask, sequence_mask_prob in sequence_masks:
                     sequence_loss, sequence_metrics = masked_diffusion_loss(
                         train_model,
                         loss_clean_ids,
@@ -572,6 +579,7 @@ def main():
                         eligible_mask=sequence_eligible_mask,
                         force_mask=sequence_force_mask,
                         mask_all_eligible=True,
+                        mask_prob_override=sequence_mask_prob,
                         teacher_model=teacher_model,
                         teacher_kl_weight=args.ar_teacher_kl_weight,
                         teacher_temperature=args.ar_teacher_temperature,
