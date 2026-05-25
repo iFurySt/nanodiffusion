@@ -201,6 +201,7 @@ ATTENTION_MODE=causal MASK_PATTERN=prefix_next LOSS_NORMALIZATION=eligible MASK_
 ATTENTION_MODE=causal MASK_PATTERN=suffix_span_all SPAN_TOKENS=8 LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 MASK_SAMPLING=antithetic AR_TEACHER_MODEL_TAG=ar_d20_s1024_1k_20s_control AR_TEACHER_STEP=1000 AR_ROLLOUT_TOKENS=8 AR_ROLLOUT_TEMPERATURE=0.8 AR_ROLLOUT_TOP_K=50 SAMPLE_REVEAL_STRATEGY=left_to_right SAMPLE_BLOCK_SIZE=4 bash runs/diffusion_speedrun_a100.sh
 ATTENTION_MODE=causal MASK_PATTERN=suffix_span_all SPAN_TOKENS=8 LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 MASK_SAMPLING=antithetic AR_TEACHER_MODEL_TAG=ar_d20_s1024_1k_20s_control AR_TEACHER_STEP=1000 AR_ROLLOUT_TOKENS=8 AR_ROLLOUT_OBJECTIVE=progressive AR_ROLLOUT_TRAIN_TOKENS=1 AR_ROLLOUT_TEMPERATURE=0.8 AR_ROLLOUT_TOP_K=50 SAMPLE_REVEAL_STRATEGY=left_to_right SAMPLE_BLOCK_SIZE=1 bash runs/diffusion_speedrun_a100.sh
 ATTENTION_MODE=causal MASK_PATTERN=suffix_span_all SPAN_TOKENS=8 LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 MASK_SAMPLING=antithetic AR_TEACHER_MODEL_TAG=ar_d20_s1024_1k_20s_control AR_TEACHER_STEP=1000 AR_TEACHER_KL_WEIGHT=1.0 CE_LOSS_WEIGHT=0 AR_ROLLOUT_TOKENS=8 AR_ROLLOUT_OBJECTIVE=progressive AR_ROLLOUT_TRAIN_TOKENS=4 AR_ROLLOUT_TEMPERATURE=0.8 AR_ROLLOUT_TOP_K=50 SAMPLE_REVEAL_STRATEGY=left_to_right SAMPLE_BLOCK_SIZE=4 bash runs/diffusion_speedrun_a100.sh
+ATTENTION_MODE=causal MASK_PATTERN=suffix_span_all SPAN_TOKENS=8 LOSS_NORMALIZATION=eligible MASK_LOSS_REWEIGHT=0 MASK_SAMPLING=antithetic AR_TEACHER_MODEL_TAG=ar_d20_s1024_1k_20s_control AR_TEACHER_STEP=1000 AR_TEACHER_KL_WEIGHT=1.0 CE_LOSS_WEIGHT=0 AR_ROLLOUT_TOKENS=8 AR_ROLLOUT_OBJECTIVE=progressive_sequence AR_ROLLOUT_TRAIN_TOKENS=4 AR_ROLLOUT_TEMPERATURE=0.8 AR_ROLLOUT_TOP_K=50 SAMPLE_REVEAL_STRATEGY=left_to_right SAMPLE_BLOCK_SIZE=4 bash runs/diffusion_speedrun_a100.sh
 ```
 
 The defaults keep the original simple LLaDA/MDLM-style objective: sampled mask
@@ -1209,6 +1210,42 @@ The training KL fell because only one rollout token was supervised, but the
 diffusion validation objective regressed and samples collapsed into punctuation,
 prompt-word loops, and non-code Fibonacci continuations. Strict single-token
 rollout KL is too sparse to serve as the missing AR-to-diffusion bridge.
+
+The code now also supports `AR_ROLLOUT_OBJECTIVE=progressive_sequence`, which
+samples one AR rollout, then trains several single-token states from that same
+rollout by revealing previous rollout tokens and masking future rollout tokens.
+This preserves a denser block signal without asking the student to predict a
+teacher-forced distribution for later block tokens whose previous block tokens
+are hidden. The 500-step pilot still failed:
+
+```text
+model_tag: diffusion_a100_d20_s1024_500_arinit_causal_arrollout8_progseq4_klonly_ltr_20s
+source_checkpoint: ar_d20_s1024_1k_20s_control step 1000
+ar_teacher: ar_d20_s1024_1k_20s_control step 1000
+attention_mode: causal
+mask_pattern: suffix_span_all
+span_tokens: 8
+ce_loss_weight: 0
+ar_teacher_kl_weight: 1.0
+ar_rollout_tokens: 8
+ar_rollout_objective: progressive_sequence
+ar_rollout_train_tokens: 4
+ar_rollout_temperature: 0.8
+ar_rollout_top_k: 50
+sample_reveal_strategy: left_to_right
+sample_block_size: 4
+validation_loss_curve: 7.481161 -> 7.806906 -> 8.403992
+final_eval_loss: 8.422853
+runtime: 121.68m
+peak_memory: 43903 MiB
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_500_arinit_causal_arrollout8_progseq4_klonly_ltr_20s-20260526-041101.md
+```
+
+Despite very low training KL, validation regressed and samples repeated
+"capital", "matter", punctuation, or non-code Fibonacci fragments. Sequential
+single-token rollout states are therefore not enough; the current per-token
+rollout distillation family appears to optimize a narrow teacher-state loss
+without improving the diffusion continuation distribution.
 
 ## Evaluate And Sample
 
