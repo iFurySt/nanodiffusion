@@ -1048,6 +1048,36 @@ meaning-of-life repeats "life", "times", and "climate", and Fibonacci collapses
 to "p"/"current"/"average" fragments. A one-token progressive sampled rollout
 objective is too sparse or too off-distribution to be a useful bridge by itself.
 
+Increasing the progressive target to a 4-token chunk, aligned with block-4
+left-to-right sampling, improved loss versus the one-token version but still
+failed the qualitative gate:
+
+```text
+model_tag: diffusion_a100_d20_s1024_1k_arinit_causal_arrollout8_prog4_ltr_20s
+source_checkpoint: ar_d20_s1024_1k_20s_control step 1000
+ar_teacher: ar_d20_s1024_1k_20s_control step 1000
+attention_mode: causal
+mask_pattern: suffix_span_all
+span_tokens: 8
+ar_rollout_tokens: 8
+ar_rollout_objective: progressive
+ar_rollout_train_tokens: 4
+ar_rollout_temperature: 0.8
+ar_rollout_top_k: 50
+sample_reveal_strategy: left_to_right
+sample_block_size: 4
+validation_loss_curve: 7.481161 -> 7.146348 -> 6.631087
+final_eval_loss: 6.641946
+runtime: 111.16m
+peak_memory: 39645 MiB
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_1k_arinit_causal_arrollout8_prog4_ltr_20s-20260525-170154.md
+```
+
+The block target is less pathological than the one-token variant, but samples
+still collapse: France drifts into numeric/geography fragments, meaning-of-life
+loops on generic "of/the/process/current" text, and Fibonacci remains non-code.
+Chunk CE alone is therefore not the missing bridge.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:
