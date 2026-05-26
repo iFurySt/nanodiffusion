@@ -752,6 +752,21 @@ Known evidence:
   Fibonacci text. Matching the sequence sigma schedule does not rescue the
   per-token progressive rollout KL bridge. Report:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_500_arinit_causal_arrollout8_progseq4_klonly_sigmatch_ltr_20s-20260526-062811.md`.
+- Base training now supports
+  `--ar-rollout-objective=progressive_block_sequence`. It uses the same sampled
+  AR rollout, but trains left-to-right block reveal states whose targets are
+  the whole remaining masked part of the current block, not a single token.
+  The 500-step sigma-conditioned CE pilot
+  `diffusion_a100_d20_s1024_500_arinit_causal_arrollout8_progblockseq4_ce_sig_ltr_20s`
+  used `AR_ROLLOUT_TRAIN_TOKENS=4`, `CE_LOSS_WEIGHT=1.0`,
+  `AR_TEACHER_KL_WEIGHT=0.0`, matched sequence mask probabilities, and
+  left-to-right block-4 final sampling. It completed in 100.88 minutes at
+  39,646 MiB peak memory, with validation
+  `7.481161 -> 7.299053 -> 6.496099` and final eval `6.478598`. This is the
+  clearest validation improvement among sampled-rollout bridge pilots so far,
+  but samples still collapsed into high-frequency word, number, and
+  prompt-token loops, and Fibonacci prompts were not code. Report:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_500_arinit_causal_arrollout8_progblockseq4_ce_sig_ltr_20s-20260526-084732.md`.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -973,8 +988,9 @@ or four-token progressive sampled AR rollout CE training, and four-token
 progressive sampled AR rollout KL-only or CE+KL training, including a
 short-prefix progressive KL-only run and a strict single-token KL-only run,
 plus sequential progressive rollout KL training with and without matched
-sequence sigma conditioning, have not cleared the sample gate. More of the same
-recipe should be avoided; the next candidate
+sequence sigma conditioning, and block-state progressive sampled-rollout CE
+training, have not cleared the sample gate. More of the same recipe should be
+avoided; the next candidate
 needs a broader change than another
 scalar/sinusoidal sweep, another plain AR-initialized full-mask/continuation
 run, a simple LR/freeze schedule, single-token next-token CE, or single-token
@@ -982,12 +998,15 @@ next-token KL, teacher-forced span KL, a causal-attention-only swap, or a fully
 masked sampled-rollout span, one/four-token progressive rollout CE/KL variant,
 short-prefix-only version of the same objective, or single-token-only KL
 version of the same objective, or sequentialized version of the same per-token
-rollout objective, even with matched sequence sigma conditioning.
+rollout objective, even with matched sequence sigma conditioning. The
+block-state CE variant is different enough to keep investigating, but only if
+the next run also addresses repetition or sampler calibration instead of merely
+adding steps.
 The AR
 control makes this more specific: the same data/model can learn coherent causal
 language modeling, but the current diffusion objective and sampler still
 destroy continuation quality. The next useful work should change the bridge
-between AR and diffusion more fundamentally, for example by abandoning the
-per-token CE bridge in favor of sequence-level consistency, or by changing the
-sampler/training pair together instead of only changing which tokens are visible
-during CE training.
+between AR and diffusion more fundamentally, for example by extending the new
+block-state objective with an explicit anti-collapse calibration term, or by
+changing the sampler/training pair together instead of only changing which
+tokens are visible during CE training.

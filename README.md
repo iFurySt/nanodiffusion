@@ -1282,6 +1282,44 @@ punctuation, meaning-of-life prompts repeat generic fragments, and Fibonacci
 prompts are not code. The per-token progressive rollout KL family should be
 paused unless the bridge or sampler changes more substantially.
 
+The next broader bridge trained the sampler's whole remaining block state
+instead of a single token: `AR_ROLLOUT_OBJECTIVE=progressive_block_sequence`
+samples one AR rollout, then trains block-4 reveal states whose targets are the
+remaining masked part of the current block (`4`, `3`, `2`, then `1` tokens).
+This uses sampled-token CE with matched sigma conditioning, avoiding the
+teacher-forced hidden-token KL mismatch. It improved validation but still did
+not pass the sample gate:
+
+```text
+model_tag: diffusion_a100_d20_s1024_500_arinit_causal_arrollout8_progblockseq4_ce_sig_ltr_20s
+source_checkpoint: ar_d20_s1024_1k_20s_control step 1000
+ar_teacher: ar_d20_s1024_1k_20s_control step 1000
+attention_mode: causal
+mask_pattern: suffix_span_all
+span_tokens: 8
+diffusion_sigma_conditioning: true
+ce_loss_weight: 1.0
+ar_teacher_kl_weight: 0.0
+ar_rollout_tokens: 8
+ar_rollout_objective: progressive_block_sequence
+ar_rollout_train_tokens: 4
+ar_rollout_temperature: 0.8
+ar_rollout_top_k: 50
+sample_reveal_strategy: left_to_right
+sample_block_size: 4
+validation_loss_curve: 7.481161 -> 7.299053 -> 6.496099
+final_eval_loss: 6.478598
+runtime: 100.88m
+peak_memory: 39646 MiB
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_500_arinit_causal_arrollout8_progblockseq4_ce_sig_ltr_20s-20260526-084732.md
+```
+
+The loss trend is the best sampled-rollout bridge signal so far, but samples
+still collapse into high-frequency word, number, and prompt-token loops, and
+Fibonacci prompts are not code. The next run should build on this block-state
+objective while directly addressing repetition or sampler calibration, not go
+back to per-token rollout KL.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:
