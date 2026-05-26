@@ -229,6 +229,8 @@ def masked_diffusion_loss(
     teacher_kl_weight=0.0,
     teacher_temperature=1.0,
     ce_loss_weight=1.0,
+    unlikelihood_weight=0.0,
+    unlikelihood_window=64,
     force_mask=None,
     mask_all_eligible=False,
     mask_prob_override=None,
@@ -248,6 +250,8 @@ def masked_diffusion_loss(
     assert teacher_kl_weight >= 0
     assert teacher_temperature > 0
     assert ce_loss_weight >= 0
+    assert unlikelihood_weight >= 0
+    assert unlikelihood_window >= 0
     if teacher_model is not None and teacher_kl_weight > 0:
         assert loss_objective == "cross_entropy", "teacher KL is only defined for cross_entropy training"
         assert mask_pattern in {"full", "prefix_next", "suffix_all", "suffix_span_all"}, (
@@ -390,6 +394,33 @@ def masked_diffusion_loss(
         else:
             eligible_fraction = effective_eligible_mask.float().mean()
     ce_loss = weighted.sum() / denominator
+    unlikelihood = torch.zeros((), device=clean_ids.device, dtype=ce_loss.dtype)
+    if unlikelihood_weight > 0 and unlikelihood_window > 0:
+        assert loss_objective == "cross_entropy", "unlikelihood is only defined for cross_entropy training"
+        target_mask = batch.mask & (batch.targets >= 0)
+        if target_mask.any():
+            row_ids, target_positions = target_mask.nonzero(as_tuple=True)
+            probs = F.softmax(logits[row_ids, target_positions, :mask_token_id], dim=-1)
+            target_tokens = batch.targets[row_ids, target_positions]
+            penalty_sum = torch.zeros((), device=clean_ids.device, dtype=ce_loss.dtype)
+            penalty_count = torch.zeros((), device=clean_ids.device, dtype=ce_loss.dtype)
+            for offset in range(1, unlikelihood_window + 1):
+                prev_positions = target_positions - offset
+                active = prev_positions >= 0
+                if not active.any():
+                    continue
+                active_probs = probs[active]
+                active_targets = target_tokens[active]
+                prev_tokens = batch.input_ids[row_ids[active], prev_positions[active]]
+                valid_negative = (prev_tokens != mask_token_id) & (prev_tokens != active_targets)
+                if not valid_negative.any():
+                    continue
+                neg_probs = active_probs[valid_negative].gather(1, prev_tokens[valid_negative, None]).squeeze(1)
+                penalty_sum = penalty_sum + (-torch.log1p(-neg_probs.clamp(max=1 - 1e-6))).sum()
+                penalty_count = penalty_count + valid_negative.sum().to(dtype=ce_loss.dtype)
+            if penalty_count > 0:
+                unlikelihood = penalty_sum / penalty_count
+
     teacher_kl = torch.zeros((), device=clean_ids.device, dtype=ce_loss.dtype)
     if teacher_model is not None and teacher_kl_weight > 0:
         positions = torch.arange(clean_ids.size(1), device=clean_ids.device).view(1, -1)
@@ -403,11 +434,12 @@ def masked_diffusion_loss(
         student_log_probs = F.log_softmax(student_logits, dim=-1)
         teacher_kl_per_token = F.kl_div(student_log_probs, teacher_probs, reduction="none").sum(dim=-1)
         teacher_kl = teacher_kl_per_token.mean() * (teacher_temperature ** 2)
-    loss = ce_loss_weight * ce_loss + teacher_kl_weight * teacher_kl
+    loss = ce_loss_weight * ce_loss + teacher_kl_weight * teacher_kl + unlikelihood_weight * unlikelihood
     metrics = {
         "loss": loss.detach(),
         "ce_loss": ce_loss.detach(),
         "teacher_kl": teacher_kl.detach(),
+        "unlikelihood": unlikelihood.detach(),
         "mask_fraction": batch.mask.float().mean().detach(),
         "mask_prob": batch.mask_prob.mean().detach(),
         "eligible_fraction": eligible_fraction.detach(),

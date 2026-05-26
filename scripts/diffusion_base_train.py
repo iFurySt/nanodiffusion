@@ -100,6 +100,8 @@ def parse_args():
     parser.add_argument("--ar-teacher-step", type=int, default=-1)
     parser.add_argument("--ar-teacher-kl-weight", type=float, default=0.0)
     parser.add_argument("--ar-teacher-temperature", type=float, default=1.0)
+    parser.add_argument("--unlikelihood-weight", type=float, default=0.0)
+    parser.add_argument("--unlikelihood-window", type=int, default=64)
     parser.add_argument("--ar-rollout-tokens", type=int, default=0)
     parser.add_argument(
         "--ar-rollout-objective",
@@ -592,6 +594,8 @@ def main():
                         teacher_model=teacher_model,
                         teacher_kl_weight=args.ar_teacher_kl_weight,
                         teacher_temperature=args.ar_teacher_temperature,
+                        unlikelihood_weight=args.unlikelihood_weight,
+                        unlikelihood_window=args.unlikelihood_window,
                     )
                     scaled_loss = sequence_loss / len(sequence_masks)
                     (scaled_loss / grad_accum_steps).backward()
@@ -637,6 +641,8 @@ def main():
                     teacher_model=teacher_model,
                     teacher_kl_weight=args.ar_teacher_kl_weight,
                     teacher_temperature=args.ar_teacher_temperature,
+                    unlikelihood_weight=args.unlikelihood_weight,
+                    unlikelihood_window=args.unlikelihood_window,
                 )
                 train_loss = loss.detach()
                 (loss / grad_accum_steps).backward()
@@ -663,6 +669,7 @@ def main():
             f"step {step:05d}/{num_iterations:05d} | loss: {debiased:.6f} | "
             f"mask: {metrics['mask_fraction'].item():.3f} | lrm: {lrm:.2f} | "
             f"teacher_kl: {metrics['teacher_kl'].item():.6f} | "
+            f"ul: {metrics['unlikelihood'].item():.6f} | "
             f"dt: {dt * 1000:.2f}ms | tok/sec: {tok_per_sec:,} | "
             f"bf16_mfu: {mfu:.2f} | epoch: {epoch}"
         )
@@ -704,6 +711,8 @@ def main():
             "AR teacher step": args.ar_teacher_step,
             "AR teacher KL weight": args.ar_teacher_kl_weight,
             "AR teacher temperature": args.ar_teacher_temperature,
+            "Unlikelihood weight": args.unlikelihood_weight,
+            "Unlikelihood window": args.unlikelihood_window,
             "AR rollout tokens": args.ar_rollout_tokens,
             "AR rollout objective": args.ar_rollout_objective,
             "AR rollout train tokens": args.ar_rollout_train_tokens,

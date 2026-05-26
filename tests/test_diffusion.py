@@ -767,6 +767,42 @@ def test_diffusion_loss_uses_explicit_mask_prob_override():
     assert metrics["mask_prob"] == 0.5
 
 
+def test_diffusion_loss_adds_repetition_unlikelihood_penalty():
+    model = FixedLogitModel()
+    clean = torch.tensor([[1, 3, 4, 6]], dtype=torch.long)
+    eligible_mask = torch.zeros_like(clean, dtype=torch.bool)
+    eligible_mask[:, 2] = True
+    force_mask = torch.zeros_like(clean, dtype=torch.bool)
+    force_mask[:, 3] = True
+
+    base_loss, base_metrics = masked_diffusion_loss(
+        model,
+        clean,
+        mask_token_id=7,
+        mask_pattern="full",
+        eligible_mask=eligible_mask,
+        force_mask=force_mask,
+        mask_all_eligible=True,
+        loss_normalization="eligible",
+    )
+    penalized_loss, penalized_metrics = masked_diffusion_loss(
+        model,
+        clean,
+        mask_token_id=7,
+        mask_pattern="full",
+        eligible_mask=eligible_mask,
+        force_mask=force_mask,
+        mask_all_eligible=True,
+        loss_normalization="eligible",
+        unlikelihood_weight=1.0,
+        unlikelihood_window=2,
+    )
+
+    assert base_metrics["unlikelihood"] == 0
+    assert penalized_metrics["unlikelihood"] > 0
+    assert penalized_loss > base_loss
+
+
 def test_diffusion_loss_accepts_explicit_force_mask_and_mask_all():
     model = build_tiny_bidirectional_model()
     clean = torch.randint(0, 16, (2, 8), dtype=torch.long)

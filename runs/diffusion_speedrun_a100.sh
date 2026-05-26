@@ -53,6 +53,8 @@ AR_TEACHER_MODEL_TAG="${AR_TEACHER_MODEL_TAG:-}"
 AR_TEACHER_STEP="${AR_TEACHER_STEP:--1}"
 AR_TEACHER_KL_WEIGHT="${AR_TEACHER_KL_WEIGHT:-0.0}"
 AR_TEACHER_TEMPERATURE="${AR_TEACHER_TEMPERATURE:-1.0}"
+UNLIKELIHOOD_WEIGHT="${UNLIKELIHOOD_WEIGHT:-0.0}"
+UNLIKELIHOOD_WINDOW="${UNLIKELIHOOD_WINDOW:-64}"
 AR_ROLLOUT_TOKENS="${AR_ROLLOUT_TOKENS:-0}"
 AR_ROLLOUT_OBJECTIVE="${AR_ROLLOUT_OBJECTIVE:-span}"
 AR_ROLLOUT_TRAIN_TOKENS="${AR_ROLLOUT_TRAIN_TOKENS:-1}"
@@ -122,6 +124,8 @@ if [ -n "$AR_TEACHER_MODEL_TAG" ]; then
   torch_args+=(--ar-teacher-kl-weight="$AR_TEACHER_KL_WEIGHT")
   torch_args+=(--ar-teacher-temperature="$AR_TEACHER_TEMPERATURE")
 fi
+torch_args+=(--unlikelihood-weight="$UNLIKELIHOOD_WEIGHT")
+torch_args+=(--unlikelihood-window="$UNLIKELIHOOD_WINDOW")
 if [ "$AR_ROLLOUT_TOKENS" != "0" ]; then
   torch_args+=(--ar-rollout-tokens="$AR_ROLLOUT_TOKENS")
   torch_args+=(--ar-rollout-objective="$AR_ROLLOUT_OBJECTIVE")
@@ -192,6 +196,8 @@ append_report "- ar_teacher_model_tag: \`$AR_TEACHER_MODEL_TAG\`"
 append_report "- ar_teacher_step: \`$AR_TEACHER_STEP\`"
 append_report "- ar_teacher_kl_weight: \`$AR_TEACHER_KL_WEIGHT\`"
 append_report "- ar_teacher_temperature: \`$AR_TEACHER_TEMPERATURE\`"
+append_report "- unlikelihood_weight: \`$UNLIKELIHOOD_WEIGHT\`"
+append_report "- unlikelihood_window: \`$UNLIKELIHOOD_WINDOW\`"
 append_report "- ar_rollout_tokens: \`$AR_ROLLOUT_TOKENS\`"
 append_report "- ar_rollout_objective: \`$AR_ROLLOUT_OBJECTIVE\`"
 append_report "- ar_rollout_train_tokens: \`$AR_ROLLOUT_TRAIN_TOKENS\`"
