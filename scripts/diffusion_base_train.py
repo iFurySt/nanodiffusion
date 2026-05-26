@@ -105,7 +105,7 @@ def parse_args():
         "--ar-rollout-objective",
         type=str,
         default="span",
-        choices=["span", "progressive", "progressive_sequence"],
+        choices=["span", "progressive", "progressive_sequence", "progressive_block_sequence"],
     )
     parser.add_argument("--ar-rollout-train-tokens", type=int, default=1)
     parser.add_argument("--ar-rollout-temperature", type=float, default=0.8)
@@ -288,6 +288,7 @@ def make_ar_rollout_sequence_batches(teacher_model, clean_ids, args, generator=N
     assert args.ar_rollout_tokens > 0
     assert args.ar_rollout_train_tokens > 0
     assert args.ar_teacher_model_tag is not None, "AR rollout requires --ar-teacher-model-tag"
+    assert args.ar_rollout_objective in {"progressive_sequence", "progressive_block_sequence"}
     assert args.mask_pattern in {"suffix_span_all", "suffix_all"}, (
         "AR rollout currently expects continuation-span mask patterns"
     )
@@ -324,9 +325,14 @@ def make_ar_rollout_sequence_batches(teacher_model, clean_ids, args, generator=N
     mask_pairs = []
     for offset in range(args.ar_rollout_train_tokens):
         target_positions = target_starts + offset
-        active_targets = target_positions < span_ends
-        eligible_mask = (positions == target_positions) & active_targets
-        force_mask = positions > target_positions
+        target_ends = torch.minimum(target_starts + args.ar_rollout_train_tokens, span_ends)
+        if args.ar_rollout_objective == "progressive_block_sequence":
+            eligible_mask = (positions >= target_positions) & (positions < target_ends)
+            force_mask = positions >= target_ends
+        else:
+            active_targets = target_positions < span_ends
+            eligible_mask = (positions == target_positions) & active_targets
+            force_mask = positions > target_positions
         remaining_targets = args.ar_rollout_train_tokens - offset
         mask_prob = torch.full(
             (B, 1),
@@ -551,7 +557,10 @@ def main():
             explicit_mask_all_eligible = False
             loss_mask_pattern = args.mask_pattern
             already_backward = False
-            if args.ar_rollout_tokens > 0 and args.ar_rollout_objective == "progressive_sequence":
+            if args.ar_rollout_tokens > 0 and args.ar_rollout_objective in {
+                "progressive_sequence",
+                "progressive_block_sequence",
+            }:
                 loss_clean_ids, sequence_masks = make_ar_rollout_sequence_batches(
                     teacher_model,
                     clean_ids,

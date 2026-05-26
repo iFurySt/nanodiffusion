@@ -696,6 +696,52 @@ def test_ar_rollout_sequence_batches_reveal_previous_rollout_tokens():
     assert rollout_ids[:, 2:5].tolist() == [[7, 7, 7], [7, 7, 7]]
 
 
+def test_ar_rollout_block_sequence_batches_train_remaining_block():
+    teacher = FixedTeacherModel(vocab_size=16)
+    clean = torch.arange(16, dtype=torch.long).view(2, 8)
+    args = SimpleNamespace(
+        ar_rollout_tokens=3,
+        ar_rollout_objective="progressive_block_sequence",
+        ar_rollout_train_tokens=3,
+        ar_teacher_model_tag="teacher",
+        mask_pattern="suffix_span_all",
+        prefix_min_frac=0.25,
+        prefix_max_frac=0.25,
+        ar_rollout_temperature=0.0,
+        ar_rollout_top_k=0,
+    )
+    generator = torch.Generator(device=clean.device).manual_seed(0)
+
+    rollout_ids, mask_pairs = make_ar_rollout_sequence_batches(teacher, clean, args, generator=generator)
+
+    assert len(mask_pairs) == 3
+    first_eligible, first_force, first_mask_prob = mask_pairs[0]
+    second_eligible, second_force, second_mask_prob = mask_pairs[1]
+    third_eligible, third_force, third_mask_prob = mask_pairs[2]
+    assert first_eligible.tolist() == [
+        [False, False, True, True, True, False, False, False],
+        [False, False, True, True, True, False, False, False],
+    ]
+    assert second_eligible.tolist() == [
+        [False, False, False, True, True, False, False, False],
+        [False, False, False, True, True, False, False, False],
+    ]
+    assert third_eligible.tolist() == [
+        [False, False, False, False, True, False, False, False],
+        [False, False, False, False, True, False, False, False],
+    ]
+    assert first_force.tolist() == [
+        [False, False, False, False, False, True, True, True],
+        [False, False, False, False, False, True, True, True],
+    ]
+    assert second_force.tolist() == first_force.tolist()
+    assert third_force.tolist() == first_force.tolist()
+    assert first_mask_prob.tolist() == [[1.0], [1.0]]
+    assert torch.allclose(second_mask_prob, torch.full((2, 1), 2 / 3))
+    assert torch.allclose(third_mask_prob, torch.full((2, 1), 1 / 3))
+    assert rollout_ids[:, 2:5].tolist() == [[7, 7, 7], [7, 7, 7]]
+
+
 def test_diffusion_loss_uses_explicit_mask_prob_override():
     model = build_tiny_bidirectional_model(diffusion_sigma_conditioning=True)
     clean = torch.randint(0, 16, (2, 8), dtype=torch.long)
