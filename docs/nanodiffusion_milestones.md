@@ -739,6 +739,19 @@ Known evidence:
   rollout distillation family appears to optimize narrow teacher-state losses
   without improving the diffusion continuation distribution. Report:
   `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_500_arinit_causal_arrollout8_progseq4_klonly_ltr_20s-20260526-041101.md`.
+- Sequential progressive rollout training can now pass an explicit
+  `mask_prob_override` into diffusion loss, so the sigma conditioning can match
+  the remaining sampled-block fraction for each sequential state instead of
+  using the one-token eligible fraction. The sigma-matched 500-step pilot
+  `diffusion_a100_d20_s1024_500_arinit_causal_arrollout8_progseq4_klonly_sigmatch_ltr_20s`
+  used the same KL-only setup and assigned sequence mask probabilities
+  `1.0`, `0.75`, `0.5`, and `0.25`. It completed in 121.66 minutes at
+  43,903 MiB peak memory, with validation
+  `7.481161 -> 8.118941 -> 8.553084` and final eval `8.515494`. Samples still
+  looped on "capital"/"French", punctuation, generic fragments, or non-code
+  Fibonacci text. Matching the sequence sigma schedule does not rescue the
+  per-token progressive rollout KL bridge. Report:
+  `/data2/nanodiffusion/baseline_a100_10s_d20_5k/report/diffusion_a100_d20_s1024_500_arinit_causal_arrollout8_progseq4_klonly_sigmatch_ltr_20s-20260526-062811.md`.
 
 ## Milestone 1: Reproducible Base Speedrun
 
@@ -959,8 +972,9 @@ diffusion, fully masked sampled AR rollout span training, one-token
 or four-token progressive sampled AR rollout CE training, and four-token
 progressive sampled AR rollout KL-only or CE+KL training, including a
 short-prefix progressive KL-only run and a strict single-token KL-only run,
-plus sequential progressive rollout KL training, have not cleared the
-sample gate. More of the same recipe should be avoided; the next candidate
+plus sequential progressive rollout KL training with and without matched
+sequence sigma conditioning, have not cleared the sample gate. More of the same
+recipe should be avoided; the next candidate
 needs a broader change than another
 scalar/sinusoidal sweep, another plain AR-initialized full-mask/continuation
 run, a simple LR/freeze schedule, single-token next-token CE, or single-token
@@ -968,7 +982,7 @@ next-token KL, teacher-forced span KL, a causal-attention-only swap, or a fully
 masked sampled-rollout span, one/four-token progressive rollout CE/KL variant,
 short-prefix-only version of the same objective, or single-token-only KL
 version of the same objective, or sequentialized version of the same per-token
-rollout objective.
+rollout objective, even with matched sequence sigma conditioning.
 The AR
 control makes this more specific: the same data/model can learn coherent causal
 language modeling, but the current diffusion objective and sampler still

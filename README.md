@@ -1247,6 +1247,40 @@ single-token rollout states are therefore not enough; the current per-token
 rollout distillation family appears to optimize a narrow teacher-state loss
 without improving the diffusion continuation distribution.
 
+The follow-up matched each sequential rollout state's explicit mask probability
+to its remaining sampled block fraction (`1.0`, `0.75`, `0.5`, `0.25`) so the
+student sigma conditioning no longer saw every one-token state as a near-zero
+noise level. This still failed:
+
+```text
+model_tag: diffusion_a100_d20_s1024_500_arinit_causal_arrollout8_progseq4_klonly_sigmatch_ltr_20s
+source_checkpoint: ar_d20_s1024_1k_20s_control step 1000
+ar_teacher: ar_d20_s1024_1k_20s_control step 1000
+attention_mode: causal
+mask_pattern: suffix_span_all
+span_tokens: 8
+ce_loss_weight: 0
+ar_teacher_kl_weight: 1.0
+ar_rollout_tokens: 8
+ar_rollout_objective: progressive_sequence
+ar_rollout_train_tokens: 4
+ar_rollout_temperature: 0.8
+ar_rollout_top_k: 50
+sample_reveal_strategy: left_to_right
+sample_block_size: 4
+validation_loss_curve: 7.481161 -> 8.118941 -> 8.553084
+final_eval_loss: 8.515494
+runtime: 121.66m
+peak_memory: 43903 MiB
+report: $NANODIFFUSION_BASE_DIR/report/diffusion_a100_d20_s1024_500_arinit_causal_arrollout8_progseq4_klonly_sigmatch_ltr_20s-20260526-062811.md
+```
+
+Matching the sequence sigma schedule worsened validation and did not change the
+sample failure mode: France completions loop on "capital"/"French" or
+punctuation, meaning-of-life prompts repeat generic fragments, and Fibonacci
+prompts are not code. The per-token progressive rollout KL family should be
+paused unless the bridge or sampler changes more substantially.
+
 ## Evaluate And Sample
 
 Evaluate validation diffusion loss and print one sample:
